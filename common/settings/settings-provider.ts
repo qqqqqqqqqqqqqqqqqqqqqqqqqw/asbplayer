@@ -16,6 +16,8 @@ import {
     DictionaryTrack,
     TokenReadingAnnotation,
     TokenFrequencyAnnotation,
+    UnknownTokenDefinitionPlacement,
+    UnknownTokenDefinitionScope,
     getFullyKnownTokenStatus,
 } from '.';
 import { AutoPausePreference, PostMineAction, PostMinePlayback, SubtitleHtml } from '..';
@@ -51,6 +53,9 @@ const defaultDictionaryTrackSettings: DictionaryTrack = {
     dictionaryYomitanScanLength: 16,
     dictionaryTokenReadingAnnotation: TokenReadingAnnotation.NEVER,
     dictionaryDisplayIgnoredTokenReadings: false,
+    dictionaryDisplayUnknownTokenDefinitions: false,
+    dictionaryUnknownTokenDefinitionPlacement: UnknownTokenDefinitionPlacement.STACKED_ABOVE_READING,
+    dictionaryUnknownTokenDefinitionScope: UnknownTokenDefinitionScope.UNCOLLECTED_ONLY,
     dictionaryTokenFrequencyAnnotation: TokenFrequencyAnnotation.NEVER,
     dictionaryAnkiDecks: [],
     dictionaryAnkiWordFields: [],

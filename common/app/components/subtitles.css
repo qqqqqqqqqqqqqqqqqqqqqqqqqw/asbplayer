@@ -29,6 +29,8 @@
 .asb-frequency rt {
     font-size: 0.3em; /* This is overridden for SubtitlePlayer as it's too small */
     line-height: 1;
+    position: relative;
+    z-index: 1;
 }
 
 .asb-frequency-hover {
@@ -39,10 +41,50 @@
     font-size: 0.3em; /* This is overridden for SubtitlePlayer as it's too small */
     line-height: 1;
     display: none;
+    position: relative;
+    z-index: 1;
 }
 
 .asb-frequency-hover:hover rt {
     display: revert; /* Safari doesn't support 'ruby-text' */
+}
+
+.asb-definition {
+    display: inline-block !important;
+    text-align: center !important;
+    vertical-align: baseline !important;
+}
+
+.asb-definition-below {
+    display: inline-block !important;
+    position: relative !important;
+    text-align: center !important;
+    vertical-align: baseline !important;
+    padding-bottom: 0.4em !important;
+}
+
+.asb-definition::before,
+.asb-definition-below::after {
+    font-size: 0.4em;
+    line-height: 1;
+    font-weight: normal;
+    color: color-mix(in srgb, currentColor 85%, transparent);
+    white-space: nowrap;
+    text-align: center;
+    pointer-events: none;
+}
+
+.asb-definition::before {
+    content: attr(data-definition);
+    display: block;
+}
+
+.asb-definition-below::after {
+    content: attr(data-definition);
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .asbplayer-subtitles-blurred {

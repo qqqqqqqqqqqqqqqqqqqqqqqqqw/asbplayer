@@ -28,6 +28,8 @@ import {
     TokenState,
     TokenStatus,
     TokenStyling,
+    UnknownTokenDefinitionPlacement,
+    UnknownTokenDefinitionScope,
 } from '@project/common/settings';
 import { CardStatus, DictionaryProvider, LemmaResults, TokenResults } from '@project/common/dictionary-db';
 import {
@@ -60,6 +62,11 @@ const ASB_TOKEN_CLASS = 'asb-token';
 const ASB_TOKEN_HIGHLIGHT_CLASS = 'asb-token-highlight';
 const ASB_READING_CLASS = 'asb-reading';
 const ASB_FREQUENCY_CLASS = 'asb-frequency';
+const ASB_DEFINITION_CLASS = 'asb-definition';
+const ASB_DEFINITION_BELOW_CLASS = 'asb-definition-below';
+const ASB_DEFINITION_RT_CLASS = 'asb-definition-rt';
+const ASB_DEFINITION_BELOW_RT_CLASS = 'asb-definition-below-rt';
+const ASB_READING_TEXT_CLASS = 'asb-reading-text';
 // const ASB_FREQUENCY_HOVER_CLASS = 'asb-frequency-hover';
 
 interface TokenStatusResult {
@@ -1301,6 +1308,8 @@ export class SubtitleAnnotations extends SubtitleCollection<RichSubtitleModel> {
                 if (token.status === null) this.erroredCache.add(index);
                 await this._updateFrequency(token, trimmedToken, index, ts);
                 if (this.shouldCancelBuild) return;
+                await this._updateDefinition(token, trimmedToken, index, ts);
+                if (this.shouldCancelBuild) return;
             }
 
             return { reconstructedText: reconstructedTextParts.join(''), tokenization: { tokens } };
@@ -1323,6 +1332,18 @@ export class SubtitleAnnotations extends SubtitleCollection<RichSubtitleModel> {
             token.frequency = await ts.yt.frequency(trimmedToken);
         } else {
             this.refreshCache.add(index);
+        }
+    }
+
+    private async _updateDefinition(token: Token, trimmedToken: string, index: number, ts: TrackState): Promise<void> {
+        if (!ts.yt) throw new Error('Yomitan uninitialized - cannot update token definition');
+        if (!ts.dt.dictionaryDisplayUnknownTokenDefinitions) return;
+        if (!definitionScopeIncludesStatus(ts.dt.dictionaryUnknownTokenDefinitionScope, token.status)) return;
+        const def = await ts.yt.definition(trimmedToken);
+        if (def === undefined) {
+            this.refreshCache.add(index);
+        } else {
+            token.definition = def;
         }
     }
 
@@ -1745,6 +1766,14 @@ export class HoveredToken {
             return token;
         }
 
+        if (
+            el.classList.contains(ASB_DEFINITION_RT_CLASS) ||
+            el.classList.contains(ASB_DEFINITION_BELOW_RT_CLASS) ||
+            el.classList.contains(ASB_READING_TEXT_CLASS)
+        ) {
+            return '';
+        }
+
         for (const child of el.childNodes) token += this._extractTokenFromNode(child);
         return token;
     }
@@ -1786,11 +1815,20 @@ const ERROR_STYLE = `style="text-decoration: line-through red 3px;"`;
 const LOGIC_ERROR_STYLE = `style="text-decoration: line-through red 3px double;"`;
 
 export const applyTokenStyle = (fullText: string, token: Token, allowAsciiReading: boolean, dt?: DictionaryTrack) => {
-    const tokenText = applyFrequencyAnnotation(
-        applyReadingAnnotation(fullText, token, allowAsciiReading, dt),
-        token,
-        dt
-    );
+    const showDefinition = shouldShowDefinition(token, dt);
+    const placement = dt?.dictionaryUnknownTokenDefinitionPlacement;
+    const skipReading = showDefinition && placement === UnknownTokenDefinitionPlacement.ABOVE_REPLACING_READING;
+
+    let tokenText = skipReading
+        ? fullText.substring(token.pos[0], token.pos[1])
+        : applyReadingAnnotation(fullText, token, allowAsciiReading, dt);
+    if (showDefinition && placement !== UnknownTokenDefinitionPlacement.BELOW_FREQUENCY) {
+        tokenText = applyDefinitionAnnotation(tokenText, token, ASB_DEFINITION_CLASS);
+    }
+    tokenText = applyFrequencyAnnotation(tokenText, token, dt);
+    if (showDefinition && placement === UnknownTokenDefinitionPlacement.BELOW_FREQUENCY) {
+        tokenText = applyDefinitionAnnotation(tokenText, token, ASB_DEFINITION_BELOW_CLASS);
+    }
     if (token.status === null) return `<span ${ERROR_STYLE}>${tokenText}</span>`;
     if (token.status === undefined && dt && dictionaryTrackEnabled(dt)) {
         return `<span ${LOGIC_ERROR_STYLE}>${tokenText}</span>`; // External tokens may flash this on initial load
@@ -1875,3 +1913,28 @@ const applyFrequencyAnnotation = (tokenText: string, token: Token, dt?: Dictiona
     }
     return `<ruby class="${ASB_FREQUENCY_CLASS}">${tokenText}<rt>${token.frequency}</rt></ruby>`;
 };
+
+const HTML_ESCAPES: { [k: string]: string } = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+
+export function definitionScopeIncludesStatus(
+    scope: UnknownTokenDefinitionScope,
+    status: TokenStatus | null | undefined
+): boolean {
+    if (status === null || status === undefined) return false;
+    if (scope === UnknownTokenDefinitionScope.UNCOLLECTED_ONLY) return status === TokenStatus.UNCOLLECTED;
+    return status <= TokenStatus.UNKNOWN;
+}
+
+function shouldShowDefinition(token: Token, dt?: DictionaryTrack): boolean {
+    if (!dt?.dictionaryDisplayUnknownTokenDefinitions) return false;
+    if (token.definition == null) return false;
+    if (!definitionScopeIncludesStatus(dt.dictionaryUnknownTokenDefinitionScope, token.status)) return false;
+    return true;
+}
+
+function applyDefinitionAnnotation(tokenText: string, token: Token, cls: string) {
+    if (token.definition == null) return tokenText;
+    return `<span class="${cls}" data-definition="${escapeHtml(token.definition)}">${tokenText}</span>`;
+}
+

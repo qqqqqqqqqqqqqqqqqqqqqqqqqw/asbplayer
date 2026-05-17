@@ -63,6 +63,15 @@ const dictionaryTrackSchema = {
         dictionaryDisplayIgnoredTokenReadings: {
             type: 'boolean',
         },
+        dictionaryDisplayUnknownTokenDefinitions: {
+            type: 'boolean',
+        },
+        dictionaryUnknownTokenDefinitionPlacement: {
+            type: 'string',
+        },
+        dictionaryUnknownTokenDefinitionScope: {
+            type: 'string',
+        },
         dictionaryTokenFrequencyAnnotation: {
             type: 'string',
         },

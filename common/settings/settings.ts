@@ -200,13 +200,25 @@ export enum TokenFrequencyAnnotation {
     NEVER = 'NEVER',
 }
 
+export enum UnknownTokenDefinitionPlacement {
+    STACKED_ABOVE_READING = 'STACKED_ABOVE_READING',
+    ABOVE_REPLACING_READING = 'ABOVE_REPLACING_READING',
+    BELOW_FREQUENCY = 'BELOW_FREQUENCY',
+}
+
+export enum UnknownTokenDefinitionScope {
+    UNCOLLECTED_ONLY = 'UNCOLLECTED_ONLY',
+    UNCOLLECTED_AND_UNKNOWN = 'UNCOLLECTED_AND_UNKNOWN',
+}
+
 export function dictionaryTrackEnabled(dt: DictionaryTrack): boolean {
     return (
         dt.dictionaryColorizeSubtitles ||
         dt.dictionaryAutoGenerateStatistics ||
         dt.dictionaryTokenReadingAnnotation !== TokenReadingAnnotation.NEVER ||
         dt.dictionaryDisplayIgnoredTokenReadings ||
-        dt.dictionaryTokenFrequencyAnnotation !== TokenFrequencyAnnotation.NEVER
+        dt.dictionaryTokenFrequencyAnnotation !== TokenFrequencyAnnotation.NEVER ||
+        dt.dictionaryDisplayUnknownTokenDefinitions
     );
 }
 
@@ -216,7 +228,8 @@ export function dictionaryStatusCollectionEnabled(dt: DictionaryTrack): boolean 
         dt.dictionaryAutoGenerateStatistics ||
         dt.dictionaryTokenReadingAnnotation === TokenReadingAnnotation.LEARNING_OR_BELOW ||
         dt.dictionaryTokenReadingAnnotation === TokenReadingAnnotation.UNKNOWN_OR_BELOW ||
-        dt.dictionaryTokenFrequencyAnnotation === TokenFrequencyAnnotation.UNCOLLECTED_ONLY
+        dt.dictionaryTokenFrequencyAnnotation === TokenFrequencyAnnotation.UNCOLLECTED_ONLY ||
+        dt.dictionaryDisplayUnknownTokenDefinitions
     );
 }
 
@@ -232,6 +245,9 @@ export interface DictionaryTrack {
     readonly dictionaryYomitanScanLength: number;
     readonly dictionaryTokenReadingAnnotation: TokenReadingAnnotation;
     readonly dictionaryDisplayIgnoredTokenReadings: boolean;
+    readonly dictionaryDisplayUnknownTokenDefinitions: boolean;
+    readonly dictionaryUnknownTokenDefinitionPlacement: UnknownTokenDefinitionPlacement;
+    readonly dictionaryUnknownTokenDefinitionScope: UnknownTokenDefinitionScope;
     readonly dictionaryTokenFrequencyAnnotation: TokenFrequencyAnnotation;
     readonly dictionaryAnkiDecks: string[];
     readonly dictionaryAnkiWordFields: string[];
@@ -264,6 +280,9 @@ const dictionaryTrackComparators: {
     dictionaryYomitanScanLength: (a, b) => a === b,
     dictionaryTokenReadingAnnotation: (a, b) => a === b,
     dictionaryDisplayIgnoredTokenReadings: (a, b) => a === b,
+    dictionaryDisplayUnknownTokenDefinitions: (a, b) => a === b,
+    dictionaryUnknownTokenDefinitionPlacement: (a, b) => a === b,
+    dictionaryUnknownTokenDefinitionScope: (a, b) => a === b,
     dictionaryTokenFrequencyAnnotation: (a, b) => a === b,
     dictionaryAnkiDecks: (a, b) => arrayEquals(a, b),
     dictionaryAnkiWordFields: (a, b) => arrayEquals(a, b),

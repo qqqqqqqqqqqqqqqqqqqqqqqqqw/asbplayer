@@ -68,6 +68,26 @@ interface TermEntriesResult {
 interface TermDictionaryEntry {
     headwords: TermHeadword[];
     frequencies: TermFrequency[];
+    definitions?: TermDefinition[];
+}
+
+interface TermDefinition {
+    index: number;
+    headwordIndices: number[];
+    dictionary: string;
+    dictionaryIndex: number;
+    dictionaryAlias: string;
+    isPrimary?: boolean;
+    entries: TermDefinitionEntry[];
+}
+
+type TermDefinitionEntry = string | TermDefinitionStructuredContent;
+
+interface TermDefinitionStructuredContent {
+    type?: string;
+    tag?: string;
+    data?: { [key: string]: string };
+    content?: TermDefinitionEntry | TermDefinitionEntry[];
 }
 
 export class Yomitan {
@@ -77,6 +97,7 @@ export class Yomitan {
     private readonly tokenizeCache: Map<string, TokenPart[][]>;
     private readonly lemmatizeCache: Map<string, string[]>;
     private readonly frequencyCache: Map<string, number | null>;
+    private readonly definitionCache: Map<string, string | null>;
     private readonly lemmaTokenFallback: boolean; // Allow collecting ungrouped segments (no dictionary entry)
     private readonly tokensWereModified?: (token: string) => void;
     private supportsMecab: boolean;
@@ -96,6 +117,7 @@ export class Yomitan {
         this.tokenizeCache = new Map();
         this.lemmatizeCache = new Map();
         this.frequencyCache = new Map();
+        this.definitionCache = new Map();
         this.lemmaTokenFallback = options?.lemmaTokenFallback ?? false;
         this.tokensWereModified = options?.tokensWereModified;
         this.supportsMecab = false;
@@ -122,6 +144,7 @@ export class Yomitan {
         this.tokenizeCache.clear();
         this.lemmatizeCache.clear();
         this.frequencyCache.clear();
+        this.definitionCache.clear();
         this.lastCancelledAt = Date.now();
     }
 
@@ -391,6 +414,7 @@ export class Yomitan {
                 await this._executeAction('termEntries', { term: token }, yomitanUrl)
             ).dictionaryEntries;
             if (!this.frequencyCache.has(token)) this.extractFrequency(token, entries);
+            if (!this.definitionCache.has(token)) this.extractDefinition(token, entries);
             return this.extractLemmas(
                 token,
                 entries.map((entry) => entry.headwords)
@@ -432,6 +456,7 @@ export class Yomitan {
                             entries.map((entry) => entry.headwords)
                         );
                     }
+                    if (!this.definitionCache.has(token)) this.extractDefinition(token, entries);
                     this.tokensWereModified!(token);
                 } finally {
                     setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
@@ -455,6 +480,7 @@ export class Yomitan {
                     entries.map((entry) => entry.headwords)
                 );
             }
+            if (!this.definitionCache.has(token)) this.extractDefinition(token, entries);
             return this.extractFrequency(token, entries);
         } finally {
             setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
@@ -489,6 +515,91 @@ export class Yomitan {
         if (minFrequency === null && preferTermSource) return this.extractFrequency(token, entries, false);
         this.frequencyCache.set(token, minFrequency);
         return minFrequency;
+    }
+
+    /**
+     * Extract the first definition for a token by finding the first headword whose source matches the token
+     * exactly, then taking its first associated definition. Returns plain text (structured content flattened).
+     */
+    private extractDefinition(token: string, entries: TermDictionaryEntry[]): string | null {
+        for (const entry of entries) {
+            const matchingHeadwordIndices = new Set<number>();
+            for (const [i, headword] of entry.headwords.entries()) {
+                for (const source of headword.sources) {
+                    if (source.originalText !== token) continue;
+                    if (!source.isPrimary) continue;
+                    if (source.matchType !== 'exact') continue;
+                    matchingHeadwordIndices.add(headword.headwordIndex ?? i);
+                    break;
+                }
+            }
+            if (!matchingHeadwordIndices.size || !entry.definitions) continue;
+            for (const def of entry.definitions) {
+                if (!def.headwordIndices.some((i) => matchingHeadwordIndices.has(i))) continue;
+                for (const definitionEntry of def.entries) {
+                    // Prefer the first gloss list item; fall back to flattening all text for non-list dictionaries.
+                    let text = (findFirstGloss(definitionEntry) || flattenContent(definitionEntry))
+                        .replace(/\s*\([^)]*\)/g, '')
+                        .replace(/\s*\|\s*/g, ' ')
+                        .trim()
+                        .replace(/\s+/g, ' ');
+                    // Cap length so ruby annotations stay readable.
+                    if (text.length > DEFINITION_MAX_LENGTH) {
+                        text = text.substring(0, DEFINITION_MAX_LENGTH).replace(/\s+\S*$/, '') + '…';
+                    }
+                    if (text.length && HAS_LETTER_REGEX.test(text)) {
+                        this.definitionCache.set(token, text);
+                        return text;
+                    }
+                }
+            }
+        }
+        this.definitionCache.set(token, null);
+        return null;
+    }
+
+    async definition(token: string, yomitanUrl?: string): Promise<string | undefined | null> {
+        const cached = this.definitionCache.get(token);
+        if (cached !== undefined) return cached;
+        if (!HAS_LETTER_REGEX.test(token)) {
+            this.definitionCache.set(token, null);
+            return null;
+        }
+        if (this.tokensWereModified) {
+            void (async () => {
+                const now = Date.now();
+                const semaphoreId = await this.asyncSemaphore.acquire();
+                try {
+                    if (this.definitionCache.has(token)) return;
+                    if (now < this.lastCancelledAt) {
+                        this.tokensWereModified!(token);
+                        return;
+                    }
+                    const entries: TermDictionaryEntry[] = (
+                        await this._executeAction('termEntries', { term: token }, yomitanUrl)
+                    ).dictionaryEntries;
+                    this.extractDefinition(token, entries);
+                    this.tokensWereModified!(token);
+                } finally {
+                    setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
+                }
+            })();
+            return;
+        }
+
+        const now = Date.now();
+        const semaphoreId = await this.asyncSemaphore.acquire();
+        try {
+            const def = this.definitionCache.get(token);
+            if (def !== undefined) return def;
+            if (now < this.lastCancelledAt) return;
+            const entries: TermDictionaryEntry[] = (
+                await this._executeAction('termEntries', { term: token }, yomitanUrl)
+            ).dictionaryEntries;
+            return this.extractDefinition(token, entries);
+        } finally {
+            setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
+        }
     }
 
     async termEntriesBulk(tokens: string[], yomitanUrl?: string): Promise<void> {
@@ -532,6 +643,7 @@ export class Yomitan {
                             );
                         }
                         if (!this.frequencyCache.has(token)) this.extractFrequency(token, entries);
+                        if (!this.definitionCache.has(token)) this.extractDefinition(token, entries);
                     }
                 },
                 { batchSize: TERM_ENTRIES_BATCH_SIZE }
@@ -625,4 +737,56 @@ export class Yomitan {
         if (!json || json === '{}') throw new Error(`Yomitan API error for ${path}: ${json}`);
         return json;
     }
+}
+
+// Yomitan dictionaries (notably Jitendex) tag non-gloss spans (POS, examples, misc info, etc.)
+// via `data` attribute values. Skip subtrees whose data values match these markers.
+const EXCLUDED_DATA_MARKER =
+    /part-of-speech|\bpos\b|tag-list|\btag\b|example|translation-target|abbreviation|info-glossary|reference|\bforms?\b|forms?-list|inflection|extra|note|\bmisc\b|\bfield\b|\bdialect\b|see-also|antonym/i;
+const DEFINITION_MAX_LENGTH = 120;
+
+function hasExcludedData(entry: TermDefinitionStructuredContent): boolean {
+    if (!entry.data) return false;
+    for (const v of Object.values(entry.data)) {
+        if (typeof v === 'string' && EXCLUDED_DATA_MARKER.test(v)) return true;
+    }
+    return false;
+}
+
+// Depth-first search for the first gloss list (ul/ol), returning text of its first <li>.
+// Skips subtrees with excluded data values. Returns '' if no list is found.
+function findFirstGloss(entry: TermDefinitionEntry | TermDefinitionEntry[] | undefined): string {
+    if (!entry) return '';
+    if (typeof entry === 'string') return '';
+    if (Array.isArray(entry)) {
+        for (const item of entry) {
+            const text = findFirstGloss(item);
+            if (text) return text;
+        }
+        return '';
+    }
+    if (hasExcludedData(entry)) return '';
+    if (entry.tag === 'ul' || entry.tag === 'ol') {
+        const items = Array.isArray(entry.content) ? entry.content : entry.content ? [entry.content] : [];
+        const firstLi = items.find(
+            (c): c is TermDefinitionStructuredContent =>
+                typeof c === 'object' && c !== null && !Array.isArray(c) && (c as TermDefinitionStructuredContent).tag === 'li'
+        );
+        if (!firstLi) return '';
+        // If this li contains a nested list (e.g. sense-group wrapper), recurse into it
+        const nested = findFirstGloss(firstLi.content);
+        return nested || flattenContent(firstLi);
+    }
+    return findFirstGloss(entry.content);
+}
+
+// Flatten all text within an entry, skipping excluded subtrees. Used for the content of a list item
+// and as a fallback for dictionaries that don't use gloss lists.
+function flattenContent(entry: TermDefinitionEntry | TermDefinitionEntry[] | undefined): string {
+    if (!entry) return '';
+    if (typeof entry === 'string') return entry;
+    if (Array.isArray(entry)) return entry.map(flattenContent).join(' ');
+    if (entry.tag === 'a') return '';
+    if (hasExcludedData(entry)) return '';
+    return flattenContent(entry.content);
 }

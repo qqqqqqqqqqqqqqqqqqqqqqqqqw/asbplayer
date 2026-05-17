@@ -39,6 +39,8 @@ import {
     TextSubtitleSettings,
     TokenStatus,
     DictionaryTrack,
+    UnknownTokenDefinitionPlacement,
+    UnknownTokenDefinitionScope,
 } from '@project/common/settings';
 import { Anki } from '../anki';
 import { Yomitan } from '../yomitan/yomitan';
@@ -635,6 +637,143 @@ const DictionarySettingsTab: React.FC<Props> = ({
                     label={t('settings.dictionaryDisplayIgnoredTokenReadings')}
                     labelPlacement="start"
                 />
+                <SwitchLabelWithHoverEffect
+                    control={
+                        <Switch
+                            checked={selectedDictionary.dictionaryDisplayUnknownTokenDefinitions}
+                            onChange={(e) => {
+                                const newTracks = [...dictionaryTracks];
+                                newTracks[selectedDictionaryTrack] = {
+                                    ...newTracks[selectedDictionaryTrack],
+                                    dictionaryDisplayUnknownTokenDefinitions: e.target.checked,
+                                };
+                                onSettingChanged('dictionaryTracks', newTracks);
+                            }}
+                        />
+                    }
+                    label={t('settings.dictionaryDisplayUnknownTokenDefinitions')}
+                    labelPlacement="start"
+                />
+                {selectedDictionary.dictionaryDisplayUnknownTokenDefinitions && (
+                    <>
+                        <FormControl>
+                            <FormLabel component="legend">
+                                {t('settings.dictionaryUnknownTokenDefinitionPlacement')}
+                            </FormLabel>
+                            <RadioGroup row={false}>
+                                <LabelWithHoverEffect
+                                    control={
+                                        <Radio
+                                            checked={
+                                                selectedDictionary.dictionaryUnknownTokenDefinitionPlacement ===
+                                                UnknownTokenDefinitionPlacement.STACKED_ABOVE_READING
+                                            }
+                                            onChange={() => {
+                                                const newTracks = [...dictionaryTracks];
+                                                newTracks[selectedDictionaryTrack] = {
+                                                    ...newTracks[selectedDictionaryTrack],
+                                                    dictionaryUnknownTokenDefinitionPlacement:
+                                                        UnknownTokenDefinitionPlacement.STACKED_ABOVE_READING,
+                                                };
+                                                onSettingChanged('dictionaryTracks', newTracks);
+                                            }}
+                                        />
+                                    }
+                                    label={t('settings.dictionaryUnknownTokenDefinitionPlacementStackedAboveReading')}
+                                />
+                                <LabelWithHoverEffect
+                                    control={
+                                        <Radio
+                                            checked={
+                                                selectedDictionary.dictionaryUnknownTokenDefinitionPlacement ===
+                                                UnknownTokenDefinitionPlacement.ABOVE_REPLACING_READING
+                                            }
+                                            onChange={() => {
+                                                const newTracks = [...dictionaryTracks];
+                                                newTracks[selectedDictionaryTrack] = {
+                                                    ...newTracks[selectedDictionaryTrack],
+                                                    dictionaryUnknownTokenDefinitionPlacement:
+                                                        UnknownTokenDefinitionPlacement.ABOVE_REPLACING_READING,
+                                                };
+                                                onSettingChanged('dictionaryTracks', newTracks);
+                                            }}
+                                        />
+                                    }
+                                    label={t(
+                                        'settings.dictionaryUnknownTokenDefinitionPlacementAboveReplacingReading'
+                                    )}
+                                />
+                                <LabelWithHoverEffect
+                                    control={
+                                        <Radio
+                                            checked={
+                                                selectedDictionary.dictionaryUnknownTokenDefinitionPlacement ===
+                                                UnknownTokenDefinitionPlacement.BELOW_FREQUENCY
+                                            }
+                                            onChange={() => {
+                                                const newTracks = [...dictionaryTracks];
+                                                newTracks[selectedDictionaryTrack] = {
+                                                    ...newTracks[selectedDictionaryTrack],
+                                                    dictionaryUnknownTokenDefinitionPlacement:
+                                                        UnknownTokenDefinitionPlacement.BELOW_FREQUENCY,
+                                                };
+                                                onSettingChanged('dictionaryTracks', newTracks);
+                                            }}
+                                        />
+                                    }
+                                    label={t('settings.dictionaryUnknownTokenDefinitionPlacementBelowFrequency')}
+                                />
+                            </RadioGroup>
+                        </FormControl>
+                        <FormControl>
+                            <FormLabel component="legend">
+                                {t('settings.dictionaryUnknownTokenDefinitionScope')}
+                            </FormLabel>
+                            <RadioGroup row={false}>
+                                <LabelWithHoverEffect
+                                    control={
+                                        <Radio
+                                            checked={
+                                                selectedDictionary.dictionaryUnknownTokenDefinitionScope ===
+                                                UnknownTokenDefinitionScope.UNCOLLECTED_ONLY
+                                            }
+                                            onChange={() => {
+                                                const newTracks = [...dictionaryTracks];
+                                                newTracks[selectedDictionaryTrack] = {
+                                                    ...newTracks[selectedDictionaryTrack],
+                                                    dictionaryUnknownTokenDefinitionScope:
+                                                        UnknownTokenDefinitionScope.UNCOLLECTED_ONLY,
+                                                };
+                                                onSettingChanged('dictionaryTracks', newTracks);
+                                            }}
+                                        />
+                                    }
+                                    label={t('settings.dictionaryUnknownTokenDefinitionScopeUncollectedOnly')}
+                                />
+                                <LabelWithHoverEffect
+                                    control={
+                                        <Radio
+                                            checked={
+                                                selectedDictionary.dictionaryUnknownTokenDefinitionScope ===
+                                                UnknownTokenDefinitionScope.UNCOLLECTED_AND_UNKNOWN
+                                            }
+                                            onChange={() => {
+                                                const newTracks = [...dictionaryTracks];
+                                                newTracks[selectedDictionaryTrack] = {
+                                                    ...newTracks[selectedDictionaryTrack],
+                                                    dictionaryUnknownTokenDefinitionScope:
+                                                        UnknownTokenDefinitionScope.UNCOLLECTED_AND_UNKNOWN,
+                                                };
+                                                onSettingChanged('dictionaryTracks', newTracks);
+                                            }}
+                                        />
+                                    }
+                                    label={t('settings.dictionaryUnknownTokenDefinitionScopeUncollectedAndUnknown')}
+                                />
+                            </RadioGroup>
+                        </FormControl>
+                    </>
+                )}
                 <FormControl>
                     <FormLabel component="legend">{t('settings.dictionaryTokenFrequencyAnnotation')}</FormLabel>
                     <RadioGroup row={false}>
