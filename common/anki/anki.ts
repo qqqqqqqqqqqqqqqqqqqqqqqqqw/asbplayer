@@ -173,10 +173,41 @@ interface Base64Exportable {
     base64: () => Promise<string>;
 }
 
+export function computeClozeParts(
+    text: string,
+    word: string
+): { prefix: string; body: string; suffix: string } | null {
+    if (!word || !text) return null;
+    const cleanWord = word.replace(/<[^>]*>/g, '').trim();
+    if (!cleanWord) return null;
+    const idx = text.toLowerCase().indexOf(cleanWord.toLowerCase());
+    if (idx === -1) return null;
+    return {
+        prefix: text.substring(0, idx),
+        body: text.substring(idx, idx + cleanWord.length),
+        suffix: text.substring(idx + cleanWord.length),
+    };
+}
+
+export async function fetchLastNoteWord(ankiSettings: AnkiSettings, anki?: Anki): Promise<string | null> {
+    const { clozeDeck, clozeWordField, ankiConnectUrl } = ankiSettings;
+    if (!clozeDeck || !clozeWordField) return null;
+    const ankiInstance = anki ?? new Anki(ankiSettings);
+    const notes = await ankiInstance.findNotes(`added:1 deck:"${clozeDeck}"`, ankiConnectUrl);
+    if (!notes.length) return null;
+    const lastNoteId = [...notes].sort()[notes.length - 1];
+    const infos = await ankiInstance.notesInfo([lastNoteId], ankiConnectUrl);
+    if (!infos.length) return null;
+    const fieldData = infos[0].fields[clozeWordField];
+    if (!fieldData?.value) return null;
+    return fieldData.value.replace(/<[^>]*>/g, '').trim();
+}
+
 export async function exportCard(
     card: CardModel,
     ankiSettings: AnkiSettings,
-    exportMode: AnkiExportMode = 'default'
+    exportMode: AnkiExportMode = 'default',
+    track1Override?: string
 ): Promise<string> {
     const anki = new Anki(ankiSettings);
     const source = sourceString(card.subtitleFileName, card.mediaTimestamp);
@@ -195,7 +226,7 @@ export async function exportCard(
 
     return await anki.export({
         text: card.text ?? extractText(card.subtitle, card.surroundingSubtitles),
-        track1: extractText(card.subtitle, card.surroundingSubtitles, 0),
+        track1: track1Override ?? extractText(card.subtitle, card.surroundingSubtitles, 0),
         track2: extractText(card.subtitle, card.surroundingSubtitles, 1),
         track3: extractText(card.subtitle, card.surroundingSubtitles, 2),
         definition: card.definition,

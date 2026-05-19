@@ -8,10 +8,10 @@ import {
     PostMineAction,
     ShowAnkiUiMessage,
 } from '@project/common';
-import { humanReadableTime } from '@project/common/util';
+import { humanReadableTime, joinSubtitles } from '@project/common/util';
 import { AnkiSettings, ankiSettingsKeys, SettingsProvider } from '@project/common/settings';
 import { v4 as uuidv4 } from 'uuid';
-import { exportCard, DuplicateNoteError } from '@project/common/anki';
+import { exportCard, DuplicateNoteError, fetchLastNoteWord, computeClozeParts } from '@project/common/anki';
 import { IndexedDBCopyHistoryRepository } from '@project/common/copy-history';
 
 export class CardPublisher {
@@ -159,7 +159,25 @@ export class CardPublisher {
 
     private async _updateLastCard(card: CardModel, src: string | undefined, tabId: number) {
         const ankiSettings = (await this._settingsProvider.get(ankiSettingsKeys)) as AnkiSettings;
-        const cardName = await exportCard(card, ankiSettings, 'updateLast');
+        let track1Override: string | undefined;
+        try {
+            const word = await fetchLastNoteWord(ankiSettings);
+            if (word) {
+                const track1Text = joinSubtitles(
+                    card.surroundingSubtitles.filter((s) => {
+                        if (s.track !== 0) return false;
+                        const overlapEnd = Math.min(s.end, card.subtitle.end);
+                        const overlapStart = Math.max(s.start, card.subtitle.start);
+                        return overlapEnd >= overlapStart;
+                    })
+                );
+                if (track1Text) {
+                    const parts = computeClozeParts(track1Text, word);
+                    if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;
+                }
+            }
+        } catch (_) {}
+        const cardName = await exportCard(card, ankiSettings, 'updateLast', track1Override);
 
         const cardUpdatedCommand: ExtensionToVideoCommand<CardUpdatedMessage> = {
             sender: 'asbplayer-extension-to-video',

@@ -79,6 +79,7 @@ export enum DictionaryTokenSource {
     LOCAL = 0,
     ANKI_WORD = 1,
     ANKI_SENTENCE = 2,
+    WANIKANI = 3,
 }
 
 /*
@@ -255,6 +256,7 @@ export interface DictionaryTrack {
     readonly dictionaryAnkiSentenceTokenMatchStrategy: TokenMatchStrategy;
     readonly dictionaryAnkiMatureCutoff: number;
     readonly dictionaryAnkiTreatSuspended: TokenStatus | 'NORMAL';
+    readonly dictionaryWaniKaniApiToken: string;
     readonly dictionaryTokenStyling: TokenStyling;
     readonly dictionaryTokenStylingThickness: number;
     readonly dictionaryColorizeFullyKnownTokens: boolean; // Deprecated in favor of dictionaryTokenStatusConfig
@@ -290,6 +292,7 @@ const dictionaryTrackComparators: {
     dictionaryAnkiSentenceTokenMatchStrategy: (a, b) => a === b,
     dictionaryAnkiMatureCutoff: (a, b) => a === b,
     dictionaryAnkiTreatSuspended: (a, b) => a === b,
+    dictionaryWaniKaniApiToken: (a, b) => a === b,
     dictionaryTokenStyling: (a, b) => a === b,
     dictionaryTokenStylingThickness: (a, b) => a === b,
     dictionaryColorizeFullyKnownTokens: (a, b) => a === b,
@@ -343,6 +346,8 @@ export interface AnkiSettings {
     readonly track1Field: string;
     readonly track2Field: string;
     readonly track3Field: string;
+    readonly clozeDeck: string;
+    readonly clozeWordField: string;
     readonly customAnkiFields: { [key: string]: string };
     readonly tags: string[];
     readonly recordWithAudioPlayback: boolean;
@@ -395,6 +400,8 @@ const ankiSettingsKeysObject: { [key in keyof AnkiSettings]: boolean } = {
     track1Field: true,
     track2Field: true,
     track3Field: true,
+    clozeDeck: true,
+    clozeWordField: true,
     customAnkiFields: true,
     tags: true,
     recordWithAudioPlayback: true,
