@@ -411,6 +411,8 @@
         "track1Field": "Subtitle Track 1 Field",
         "track2Field": "Subtitle Track 2 Field",
         "track3Field": "Subtitle Track 3 Field",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Reset",
         "screenshots": "Image capture",
         "subtitleAppearance": "Subtitle Appearance",

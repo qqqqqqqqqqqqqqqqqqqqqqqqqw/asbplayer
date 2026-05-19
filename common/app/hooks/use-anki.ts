@@ -49,6 +49,14 @@ class SettingsAccessor {
         return this.settings.track3Field;
     }
 
+    get clozeDeck() {
+        return this.settings.clozeDeck;
+    }
+
+    get clozeWordField() {
+        return this.settings.clozeWordField;
+    }
+
     get ankiFieldSettings() {
         return this.settings.ankiFieldSettings;
     }

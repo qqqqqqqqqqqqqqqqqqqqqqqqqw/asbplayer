@@ -327,6 +327,8 @@ export interface AnkiSettings {
     readonly track1Field: string;
     readonly track2Field: string;
     readonly track3Field: string;
+    readonly clozeDeck: string;
+    readonly clozeWordField: string;
     readonly customAnkiFields: { [key: string]: string };
     readonly tags: string[];
     readonly recordWithAudioPlayback: boolean;
@@ -379,6 +381,8 @@ const ankiSettingsKeysObject: { [key in keyof AnkiSettings]: boolean } = {
     track1Field: true,
     track2Field: true,
     track3Field: true,
+    clozeDeck: true,
+    clozeWordField: true,
     customAnkiFields: true,
     tags: true,
     recordWithAudioPlayback: true,

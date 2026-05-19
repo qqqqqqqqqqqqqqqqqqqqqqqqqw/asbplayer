@@ -30,7 +30,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import DoneIcon from '@mui/icons-material/Done';
 import ListField from './ListField';
-import { Anki, ExportParams } from '../anki';
+import { Anki, ExportParams, fetchLastNoteWord, computeClozeParts } from '../anki';
 import { isFirefox } from '../browser-detection';
 import SentenceField from './SentenceField';
 import DefinitionField from './DefinitionField';
@@ -738,10 +738,10 @@ const AnkiDialog = ({
     }, [open, disabled, focusOnPreferredAction]);
 
     const handleProceed = useCallback(
-        (mode: AnkiExportMode) => {
+        (mode: AnkiExportMode, track1Override?: string) => {
             onProceed({
                 text,
-                track1,
+                track1: track1Override ?? track1,
                 track2,
                 track3,
                 definition,
@@ -773,7 +773,19 @@ const AnkiDialog = ({
     );
 
     const handleOpenInAnki = useCallback(() => handleProceed('gui'), [handleProceed]);
-    const handleUpdateLastCard = useCallback(() => handleProceed('updateLast'), [handleProceed]);
+    const handleUpdateLastCard = useCallback(async () => {
+        let track1Override: string | undefined;
+        if (settings.clozeDeck && settings.clozeWordField) {
+            try {
+                const word = await fetchLastNoteWord(settings, anki);
+                if (word && track1) {
+                    const parts = computeClozeParts(track1, word);
+                    if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;
+                }
+            } catch (_) {}
+        }
+        handleProceed('updateLast', track1Override);
+    }, [settings, anki, track1, handleProceed]);
     const handleExport = useCallback(() => handleProceed('default'), [handleProceed]);
 
     useEffect(() => {
