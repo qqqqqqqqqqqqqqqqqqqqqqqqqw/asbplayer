@@ -8,7 +8,7 @@ import {
     PostMineAction,
     ShowAnkiUiMessage,
 } from '@project/common';
-import { humanReadableTime, joinSubtitles } from '@project/common/util';
+import { humanReadableTime, extractText } from '@project/common/util';
 import { AnkiSettings, ankiSettingsKeys, SettingsProvider } from '@project/common/settings';
 import { v4 as uuidv4 } from 'uuid';
 import { exportCard, DuplicateNoteError, fetchLastNoteWord, computeClozeParts } from '@project/common/anki';
@@ -163,14 +163,7 @@ export class CardPublisher {
         try {
             const word = await fetchLastNoteWord(ankiSettings);
             if (word) {
-                const track1Text = joinSubtitles(
-                    card.surroundingSubtitles.filter((s) => {
-                        if (s.track !== 0) return false;
-                        const overlapEnd = Math.min(s.end, card.subtitle.end);
-                        const overlapStart = Math.max(s.start, card.subtitle.start);
-                        return overlapEnd >= overlapStart;
-                    })
-                );
+                const track1Text = extractText(card.subtitle, card.surroundingSubtitles, 0);
                 if (track1Text) {
                     const parts = computeClozeParts(track1Text, word);
                     if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;

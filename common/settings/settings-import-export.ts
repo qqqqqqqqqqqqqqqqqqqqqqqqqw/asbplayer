@@ -236,6 +236,12 @@ const settingsSchema = {
         track3Field: {
             type: 'string',
         },
+        clozeDeck: {
+            type: 'string',
+        },
+        clozeWordField: {
+            type: 'string',
+        },
         ankiFieldSettings: {
             type: 'object',
             properties: {
