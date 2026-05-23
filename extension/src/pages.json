@@ -180,7 +180,7 @@
         },
         {
             "key": "hboMax",
-            "host": "play\\.max\\.com",
+            "host": "play\\.(hbo)?max\\.com",
             "pageScript": "hbo-max-page.js",
             "syncAllowedAtPath": "watch",
             "autoSync": {
