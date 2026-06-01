@@ -228,9 +228,10 @@ export default class AppKeyBinder implements KeyBinder {
         onOffsetChange: (event: KeyboardEvent, newOffset: number) => void,
         disabledGetter: () => boolean,
         subtitlesGetter: () => SubtitleModel[] | undefined,
+        seekableTracksGetter?: (() => SeekableTracks) | undefined,
         useCapture?: boolean | undefined
     ): () => void {
-        return this.defaultKeyBinder.bindAdjustOffset(onOffsetChange, disabledGetter, subtitlesGetter, useCapture);
+        return this.defaultKeyBinder.bindAdjustOffset(onOffsetChange, disabledGetter, subtitlesGetter, seekableTracksGetter, useCapture);
     }
 
     bindResetOffet(

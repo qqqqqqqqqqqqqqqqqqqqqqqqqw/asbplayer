@@ -101,6 +101,7 @@ export interface KeyBinder {
         onOffsetChange: (event: KeyboardEvent, newOffset: number) => void,
         disabledGetter: () => boolean,
         subtitlesGetter: () => SubtitleModel[] | undefined,
+        seekableTracksGetter?: () => SeekableTracks,
         capture?: boolean
     ): () => void;
     bindResetOffet(
@@ -563,6 +564,7 @@ export class DefaultKeyBinder implements KeyBinder {
         onOffsetChange: (event: KeyboardEvent, newOffset: number) => void,
         disabledGetter: () => boolean,
         subtitlesGetter: () => SubtitleModel[] | undefined,
+        seekableTracksGetter?: () => SeekableTracks,
         capture = false
     ) {
         const delegate = (event: KeyboardEvent, increase: boolean) => {
@@ -576,7 +578,12 @@ export class DefaultKeyBinder implements KeyBinder {
                 return false;
             }
 
-            const currentOffset = subtitles[0].start - subtitles[0].originalStart;
+            const seekableTracks = seekableTracksGetter ? seekableTracksGetter() : undefined;
+            const referenceSubtitle =
+                seekableTracks !== undefined
+                    ? (subtitles.find((s) => isTrackSeekable(seekableTracks!, s.track)) ?? subtitles[0])
+                    : subtitles[0];
+            const currentOffset = referenceSubtitle.start - referenceSubtitle.originalStart;
             const newOffset = currentOffset + (increase ? 100 : -100);
             onOffsetChange(event, newOffset);
             return true;

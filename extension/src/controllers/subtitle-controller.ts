@@ -660,21 +660,26 @@ export default class SubtitleController {
         }
     }
 
-    offset(offset: number, skipNotifyPlayer = false) {
+    offset(offset: number, skipNotifyPlayer = false, seekableTracks?: SeekableTracks) {
         if (!this.subtitles || this.subtitles.length === 0) {
             return;
         }
 
-        this.subtitles = this.subtitles.map((s) => ({
-            text: s.text,
-            textImage: s.textImage,
-            start: s.originalStart + offset,
-            originalStart: s.originalStart,
-            end: s.originalEnd + offset,
-            originalEnd: s.originalEnd,
-            track: s.track,
-            index: s.index,
-        }));
+        this.subtitles = this.subtitles.map((s) => {
+            if (seekableTracks !== undefined && !isTrackSeekable(seekableTracks, s.track)) {
+                return s;
+            }
+            return {
+                text: s.text,
+                textImage: s.textImage,
+                start: s.originalStart + offset,
+                originalStart: s.originalStart,
+                end: s.originalEnd + offset,
+                originalEnd: s.originalEnd,
+                track: s.track,
+                index: s.index,
+            };
+        });
 
         this.lastOffsetChangeTimestamp = Date.now();
 
@@ -705,7 +710,7 @@ export default class SubtitleController {
             return 0;
         }
 
-        const s = this.subtitles[0];
+        const s = this.subtitles.find((s) => isTrackSeekable(this._seekableTracks, s.track)) ?? this.subtitles[0];
         return s.start - s.originalStart;
     }
 
