@@ -16,9 +16,11 @@ import {
     AsbplayerSettings,
     exportSettings,
     isTrackAutoCopyable,
+    isTrackOffsetAffected,
     isTrackSeekable,
     PauseOnHoverMode,
     updateAutoCopyableTracksValue,
+    updateOffsetTracksValue,
     updateSeekableTracksValue,
     validateSettings,
 } from '../settings';
@@ -51,6 +53,7 @@ interface Props {
     extensionSupportsPauseOnHover?: boolean;
     extensionSupportsSeekableTrackSetting?: boolean;
     extensionSupportsAutoCopyableTrackSetting?: boolean;
+    extensionSupportsOffsetTrackSetting?: boolean;
 }
 
 const MiscSettingTab: React.FC<Props> = ({
@@ -63,6 +66,7 @@ const MiscSettingTab: React.FC<Props> = ({
     extensionSupportsPauseOnHover,
     extensionSupportsSeekableTrackSetting,
     extensionSupportsAutoCopyableTrackSetting,
+    extensionSupportsOffsetTrackSetting,
 }) => {
     const { t } = useTranslation();
     const {
@@ -73,6 +77,7 @@ const MiscSettingTab: React.FC<Props> = ({
         autoCopyCurrentSubtitle,
         seekableTracks,
         autoCopyableTracks,
+        offsetTracks,
         miningHistoryStorageLimit,
         subtitleRegexFilter,
         tabName,
@@ -263,6 +268,36 @@ const MiscSettingTab: React.FC<Props> = ({
                                                         'seekableTracks',
                                                         updateSeekableTracksValue(
                                                             seekableTracks,
+                                                            trackIndex,
+                                                            event.target.checked
+                                                        )
+                                                    );
+                                                }}
+                                            />
+                                        }
+                                        label={t('settings.subtitleTrackChoice', { trackNumber: trackIndex + 1 })}
+                                    />
+                                );
+                            })}
+                        </FormGroup>
+                    </FormControl>
+                )}
+                {(!extensionInstalled || extensionSupportsOffsetTrackSetting) && (
+                    <FormControl>
+                        <FormLabel component="legend">{t('settings.offsetTracks')}</FormLabel>
+                        <FormGroup>
+                            {[0, 1, 2].map((trackIndex) => {
+                                return (
+                                    <FormControlLabel
+                                        key={trackIndex}
+                                        control={
+                                            <Checkbox
+                                                checked={isTrackOffsetAffected(offsetTracks, trackIndex)}
+                                                onChange={(event) => {
+                                                    onSettingChanged(
+                                                        'offsetTracks',
+                                                        updateOffsetTracksValue(
+                                                            offsetTracks,
                                                             trackIndex,
                                                             event.target.checked
                                                         )

@@ -14,6 +14,7 @@ import {
 import {
     AutoCopyableTracks,
     DictionaryTrack,
+    OffsetTracks,
     SeekableTracks,
     SettingsProvider,
     SubtitleAlignment,
@@ -21,8 +22,10 @@ import {
     TextSubtitleSettings,
     allTextSubtitleSettings,
     calculateAutoCopyableTracksValue,
+    calculateOffsetTracksValue,
     calculateSeekableTracksValue,
     isTrackAutoCopyable,
+    isTrackOffsetAffected,
     isTrackSeekable,
 } from '@project/common/settings';
 import { SubtitleCollection, SubtitleCollectionOptions, SubtitleSlice } from '@project/common/subtitle-collection';
@@ -118,6 +121,7 @@ export default class SubtitleController {
     dictionaryTrackSettings?: DictionaryTrack[];
     autoPauseContext: AutoPauseContext = new AutoPauseContext();
     _seekableTracks: SeekableTracks = calculateSeekableTracksValue([0]);
+    _offsetTracks: OffsetTracks = calculateOffsetTracksValue([0]);
 
     onNextSeekableToShow?: (subtitle: SubtitleModel) => void;
     onSeekableSlice?: (subtitle: SubtitleSlice<IndexedSubtitleModel>) => void;
@@ -186,6 +190,10 @@ export default class SubtitleController {
         this.seekableSubtitleCollection.setSubtitles(
             this.subtitleAnnotations.subtitles.filter((s) => isTrackSeekable(this._seekableTracks, s.track))
         );
+    }
+
+    set offsetTracks(offsetTracks: OffsetTracks) {
+        this._offsetTracks = offsetTracks;
     }
 
     reset() {
@@ -660,13 +668,13 @@ export default class SubtitleController {
         }
     }
 
-    offset(offset: number, skipNotifyPlayer = false, seekableTracks?: SeekableTracks) {
+    offset(offset: number, skipNotifyPlayer = false, offsetTracks?: OffsetTracks) {
         if (!this.subtitles || this.subtitles.length === 0) {
             return;
         }
 
         this.subtitles = this.subtitles.map((s) => {
-            if (seekableTracks !== undefined && !isTrackSeekable(seekableTracks, s.track)) {
+            if (offsetTracks !== undefined && !isTrackOffsetAffected(offsetTracks, s.track)) {
                 return s;
             }
             return {
@@ -710,7 +718,7 @@ export default class SubtitleController {
             return 0;
         }
 
-        const s = this.subtitles.find((s) => isTrackSeekable(this._seekableTracks, s.track)) ?? this.subtitles[0];
+        const s = this.subtitles.find((s) => isTrackOffsetAffected(this._offsetTracks, s.track)) ?? this.subtitles[0];
         return s.start - s.originalStart;
     }
 

@@ -17,6 +17,8 @@ export enum VideoSubtitleSplitBehavior {
 export type SeekableTracks = number;
 // Bitset - same as above
 export type AutoCopyableTracks = number;
+// Bitset - if the nth bit is 1 then timing offset shortcuts affect the nth track
+export type OffsetTracks = number;
 
 export interface MiscSettings {
     readonly themeType: 'dark' | 'light';
@@ -25,6 +27,7 @@ export interface MiscSettings {
     readonly autoPausePreference: AutoPausePreference;
     readonly seekableTracks: SeekableTracks;
     readonly autoCopyableTracks: AutoCopyableTracks;
+    readonly offsetTracks: OffsetTracks;
     readonly seekDuration: number;
     readonly speedChangeStep: number;
     readonly fastForwardModePlaybackRate: number;
@@ -74,6 +77,12 @@ export const updateAutoCopyableTracksValue = (
     trackIndex: number,
     add: boolean
 ) => updateBitset(autoCopyableTracks, trackIndex, add);
+
+export const isTrackOffsetAffected = (offsetTracks: OffsetTracks, track: number) =>
+    isIncludedInBitset(offsetTracks, track);
+export const calculateOffsetTracksValue = (trackIndices: number[]): OffsetTracks => newBitset(trackIndices);
+export const updateOffsetTracksValue = (offsetTracks: OffsetTracks, trackIndex: number, add: boolean) =>
+    updateBitset(offsetTracks, trackIndex, add);
 
 export enum DictionaryTokenSource {
     LOCAL = 0,

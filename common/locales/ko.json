@@ -617,7 +617,8 @@
         "webSocketInterface": "WebSocket interface",
         "yomitanHelperText": "Instructions to setup Yomitan API are <0>here<0>.",
         "seekableTracks": "Subtitle tracks eligible for keyboard shortcut seeking and play mode behavior",
-        "autoCopyableTracks": "Subtitle tracks eligible for auto-copy"
+        "autoCopyableTracks": "Subtitle tracks eligible for auto-copy",
+        "offsetTracks": "Subtitle tracks affected by timing offset"
     },
     "statistics": {
         "title": "Statistics",

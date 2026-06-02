@@ -57,9 +57,11 @@ import PlayModeManager from '@project/common/app/services/play-mode-manager';
 import {
     AutoCopyableTracks,
     calculateAutoCopyableTracksValue,
+    calculateOffsetTracksValue,
     calculateSeekableTracksValue,
     extractAnkiSettings,
     isTrackSeekable,
+    OffsetTracks,
     PauseOnHoverMode,
     SeekableTracks,
     SettingsProvider,
@@ -141,6 +143,7 @@ export default class Binding {
     wasPlayingBeforeRecordingMedia?: boolean;
     postMinePlayback: PostMinePlayback = PostMinePlayback.remember;
     seekableTracks: SeekableTracks = calculateSeekableTracksValue([0]);
+    offsetTracks: OffsetTracks = calculateOffsetTracksValue([0]);
     private recordingMediaStartedTimestamp?: number;
     private recordingMediaWithScreenshot: boolean;
     private pausedDueToHover = false;
@@ -1070,6 +1073,7 @@ export default class Binding {
         this._seekDuration = currentSettings.seekDuration;
         this._speedChangeStep = currentSettings.speedChangeStep;
         this.seekableTracks = currentSettings.seekableTracks;
+        this.offsetTracks = currentSettings.offsetTracks;
         this.recordMedia = currentSettings.streamingRecordMedia;
         this.takeScreenshot = currentSettings.streamingTakeScreenshot;
         this.cleanScreenshot = currentSettings.streamingTakeScreenshot && currentSettings.streamingCleanScreenshot;
@@ -1095,6 +1099,7 @@ export default class Binding {
         this.subtitleController.autoCopyCurrentSubtitle = currentSettings.autoCopyCurrentSubtitle;
         this.subtitleController.dictionaryTrackSettings = currentSettings.dictionaryTracks;
         this.subtitleController.seekableTracks = currentSettings.seekableTracks;
+        this.subtitleController.offsetTracks = currentSettings.offsetTracks;
         this.subtitleController.autoCopyableTracks = currentSettings.autoCopyableTracks;
 
         const convertNetflixRubyChanged =

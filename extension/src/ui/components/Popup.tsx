@@ -233,6 +233,7 @@ const Popup = ({
                             extensionSupportsDictionaryWaniKani
                             extensionSupportsSeekableTrackSetting
                             extensionSupportsAutoCopyableTrackSetting
+                            extensionSupportsOffsetTrackSetting
                             extensionSupportsDictionaryTokenStatusDisplayAlpha
                             extensionSupportsDictionaryYomitanMecab
                             forceVerticalTabs={false}
