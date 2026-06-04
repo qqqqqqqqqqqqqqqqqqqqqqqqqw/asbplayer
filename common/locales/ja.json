@@ -532,6 +532,7 @@
         "dictionaryAnkiTreatSuspendedNormal": "普通",
         "dictionaryWaniKaniSection": "WaniKani",
         "dictionaryWaniKaniApiToken": "WaniKani API token",
+        "dictionaryWaniKaniApiTokenHelperText": "Instructions to get an API token are <0>here</0>.",
         "dictionaryTokenStyling": "色づけた単語のスタイル",
         "dictionaryTokenStylingText": "テキスト",
         "dictionaryTokenStylingBackground": "背景",

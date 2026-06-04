@@ -80,6 +80,7 @@ import WordBrowserDialog from './WordBrowserDialog';
 
 const yomitanInstallerUrl = 'https://github.com/yomidevs/yomitan-api';
 const yomitanMecabInstallerUrl = 'https://github.com/yomidevs/yomitan-mecab-installer';
+const waniKaniApiTokenSetupUrl = 'https://docs.asbplayer.dev/docs/guides/annotation#setup';
 const maskedDictionaryWaniKaniApiToken = '●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●';
 
 const ankiCacheDependentSettings = new Set<keyof DictionaryTrack>([
@@ -427,6 +428,26 @@ const DictionarySettingsTab: React.FC<Props> = ({
     const [showDictionaryWaniKaniApiToken, setShowDictionaryWaniKaniApiToken] = useState(false);
     const dictionaryWaniKaniApiTokenVisible =
         showDictionaryWaniKaniApiToken || !selectedDictionary.dictionaryWaniKaniApiToken;
+    const dictionaryWaniKaniApiTokenSetupHelperText = (
+        <Trans
+            i18nKey="settings.dictionaryWaniKaniApiTokenHelperText"
+            components={[<Link key={0} target="_blank" href={waniKaniApiTokenSetupUrl} />]}
+        />
+    );
+    const dictionaryWaniKaniApiTokenCacheHelperText = getHelperTextForCacheSettingsDependencies(
+        t('settings.dictionaryWaniKaniApiToken'),
+        'dictionaryWaniKaniApiToken'
+    );
+    const dictionaryWaniKaniApiTokenHelperText =
+        dictionaryWaniKaniError || !selectedDictionary.dictionaryWaniKaniApiToken.trim() ? (
+            <>
+                {dictionaryWaniKaniError ?? dictionaryWaniKaniApiTokenCacheHelperText}
+                {(dictionaryWaniKaniError || dictionaryWaniKaniApiTokenCacheHelperText) && ' '}
+                {dictionaryWaniKaniApiTokenSetupHelperText}
+            </>
+        ) : (
+            dictionaryWaniKaniApiTokenCacheHelperText
+        );
     const waniKaniUserInfoRequestId = useRef(0);
     const waniKaniUserInfoApiToken = useRef<string | undefined>(undefined);
     const waniKaniUserInfoRequest = useRef<{ apiToken: string; promise: Promise<WaniKaniUser> } | undefined>(undefined);
@@ -1626,13 +1647,7 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                     : maskedDictionaryWaniKaniApiToken
                             }
                             error={Boolean(dictionaryWaniKaniError)}
-                            helperText={
-                                dictionaryWaniKaniError ??
-                                getHelperTextForCacheSettingsDependencies(
-                                    t('settings.dictionaryWaniKaniApiToken'),
-                                    'dictionaryWaniKaniApiToken'
-                                )
-                            }
+                            helperText={dictionaryWaniKaniApiTokenHelperText}
                             color="primary"
                             onChange={(e) => {
                                 const apiToken = e.target.value;
@@ -1646,6 +1661,9 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                 onSettingChanged('dictionaryTracks', newTracks);
                             }}
                             slotProps={{
+                                formHelperText: {
+                                    sx: { ml: 0 },
+                                },
                                 input: {
                                     readOnly: !dictionaryWaniKaniApiTokenVisible,
                                     endAdornment: (

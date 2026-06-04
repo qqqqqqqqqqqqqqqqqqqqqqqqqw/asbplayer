@@ -532,6 +532,7 @@
         "dictionaryAnkiTreatSuspendedNormal": "Normale",
         "dictionaryWaniKaniSection": "WaniKani",
         "dictionaryWaniKaniApiToken": "WaniKani API token",
+        "dictionaryWaniKaniApiTokenHelperText": "Instructions to get an API token are <0>here</0>.",
         "dictionaryTokenStyling": "Stile colore parole",
         "dictionaryTokenStylingText": "Testo",
         "dictionaryTokenStylingBackground": "Sfondo",
