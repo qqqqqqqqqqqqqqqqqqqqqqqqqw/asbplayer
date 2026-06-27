@@ -793,7 +793,13 @@ export interface WebSocketClientSettings {
     readonly webSocketClientEnabled: boolean;
 }
 
-export type ChromeBoundKeyBindName = 'copySubtitle' | 'ankiExport' | 'updateLastCard' | 'updateSelectedCard' | 'exportCard' | 'takeScreenshot';
+export type ChromeBoundKeyBindName =
+    | 'copySubtitle'
+    | 'ankiExport'
+    | 'updateLastCard'
+    | 'updateSelectedCard'
+    | 'exportCard'
+    | 'takeScreenshot';
 export type SubtitleAlignment = 'top' | 'bottom';
 export enum SubtitleListPreference {
     noSubtitleList = 'noSubtitleList',

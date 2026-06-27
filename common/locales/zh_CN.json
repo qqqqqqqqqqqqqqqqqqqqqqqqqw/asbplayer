@@ -49,6 +49,7 @@
         "none": "无",
         "showAnkiDialog": "显示 Anki 对话框",
         "updateLastCard": "更新上一张卡片",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "导出卡片"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "标签（以逗号分隔）",
         "title": "导出至 Anki",
         "updateLastCard": "更新上一张导出的卡片",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "链接",
         "word": "单词",
         "zoomIn": "缩小",
         "zoomOut": "放大",
         "imagePreview": "预览与编辑",
         "quickSelectFtue": "按 {{shortcut}} 执行最近一次操作。"
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "赞助作者",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "手动截图（覆盖挖掘时的自动截图）。",
         "extensionToggleRecording": "手动控制录音开关（无视字幕状态）。",
         "extensionUpdateLastCard": "更新上一张 Anki 卡片。若视频无外挂字幕，则控制录音开关。",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "增大字幕偏移量（+100 毫秒）",
         "increasePlaybackRate": "加快播放速度",
         "resetOffset": "重置字幕偏移量",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "切换视频字幕轨道 3",
         "toggleVideoSubtitleTracks": "切换视频字幕轨道",
         "updateLastCard": "使用新截图或音频更新上一张 Anki 卡片。",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "导出卡片至 Anki（跳过对话框）。",
         "toggleSidePanel": "显示 / 隐藏侧边栏",
         "toggleRepeat": "切换循环模式",

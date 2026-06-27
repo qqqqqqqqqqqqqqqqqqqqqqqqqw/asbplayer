@@ -49,6 +49,7 @@
         "none": "Néant",
         "showAnkiDialog": "Afficher la boîte de dialogue Anki",
         "updateLastCard": "Mettre à jour la dernière carte",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Exporter la carte"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "Liste de chaînes séparées par des virgules",
         "title": "Export Anki",
         "updateLastCard": "Mettre à jour la dernière carte",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Mot",
         "zoomIn": "Zoom avant",
         "zoomOut": "Zoom arrière",
         "imagePreview": "Prévisualiser / modifier",
         "quickSelectFtue": "{{shortcut}} sélectionne/exécute la dernière action utilisée."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Faire un don",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "Prendre une capture d’écran manuellement, en remplacement de celle prise automatiquement lors de l’extraction.",
         "extensionToggleRecording": "Démarrer/arrêter manuellement l’enregistrement audio, même lorsqu’un fichier de sous-titres est chargé.",
         "extensionUpdateLastCard": "Mettre à jour la dernière carte Anki créée avec les médias capturés par asbplayer. Lorsque la vidéo est synchronisée sans fichier de sous-titres, démarre/arrête l’enregistrement audio.",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "Ajuster le décalage des sous-titres de +100 ms.",
         "increasePlaybackRate": "Augmenter la vitesse de lecture",
         "resetOffset": "Réinitialiser le décalage des sous-titres",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "Activer/désactiver la piste de sous-titres 3 dans la vidéo",
         "toggleVideoSubtitleTracks": "Activer/désactiver la piste de sous-titre dans la vidéo",
         "updateLastCard": "Mettre à jour la dernière carte Anki créée avec la capture d’écran, l’audio, etc., capturés par asbplayer",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "Exporter la carte vers Anki sans passer par la boîte de dialogue.",
         "toggleSidePanel": "Activer/désactiver le panneau latéral",
         "toggleRepeat": "Activer/désactiver le mode répétition",

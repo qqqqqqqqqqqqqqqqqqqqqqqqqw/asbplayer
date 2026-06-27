@@ -49,6 +49,7 @@
         "none": "Keine",
         "showAnkiDialog": "Anki Dialog anzeigen",
         "updateLastCard": "Letzte Karte aktualisieren",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Karte exportieren"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "Kommaseparierte Liste von Schlagwörtern",
         "title": "Anki Export",
         "updateLastCard": "Zuletzt erstellte Karte aktualisieren",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Wort",
         "zoomIn": "Hereinzoomen",
         "zoomOut": "Herauszoomen",
         "imagePreview": "Vorschau/Bearbeiten",
         "quickSelectFtue": "{{shortcut}} wählt/führt die zuletzt verwendete Aktion aus."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Spenden",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "Manuellen Screenshot erstellen - dieser überschreibt den automatisierten Screenshot",
         "extensionToggleRecording": "Manuelles Starten/Stoppen der Audioaufnahme, auch wenn Untertitel geladen sind.",
         "extensionUpdateLastCard": "Zuletzt erstellte Anki-Karte mit aufgezeichnetem Untertitel",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "Untertiteloffset +100ms",
         "increasePlaybackRate": "Wiedergabegeschwindigkeit erhöhen",
         "resetOffset": "Untertiteloffset zurücksetzen",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "Untertitel 3 in Video umschalten",
         "toggleVideoSubtitleTracks": "Untertitel in Video umschalten",
         "updateLastCard": "Zuletzt erstellte Anki-Karte mit aufgezeichnetem Untertitel",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "Karte zu Anki exportieren, dabei Dialog überspringen.",
         "toggleSidePanel": "Toggle side panel",
         "toggleRepeat": "Toggle repeat mode",

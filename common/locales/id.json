@@ -49,6 +49,7 @@
         "none": "Tidak Ada",
         "showAnkiDialog": "Tampilkan Dialog Anki",
         "updateLastCard": "Perbarui Kartu Terakhir",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Ekspor Kartu"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "Daftar tag, pisahkan dengan koma",
         "title": "Ekspor ke Anki",
         "updateLastCard": "Perbarui Kartu Terakhir",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Kata",
         "zoomIn": "Perbesar",
         "zoomOut": "Perkecil",
         "imagePreview": "Pratinjau/Sunting",
         "quickSelectFtue": "{{shortcut}} memilih atau menjalankan tindakan terakhir yang digunakan."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Donasi",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "Ambil tangkapan layar secara manual, menimpa tangkapan otomatis saat menambang.",
         "extensionToggleRecording": "Mulai/hentikan rekaman audio secara manual, bahkan saat takarir telah dimuat.",
         "extensionUpdateLastCard": "Perbarui kartu Anki terakhir dengan media yang ditambang. Jika video tersinkronisasi tanpa berkas takarir, mulai/hentikan rekaman audio.",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "Tambah offset takarir sebesar 100 ms",
         "increasePlaybackRate": "Tambah kecepatan pemutaran",
         "resetOffset": "Atur ulang offset takarir",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "Aktifkan/nonaktifkan trek takarir 3 di video",
         "toggleVideoSubtitleTracks": "Aktifkan/nonaktifkan trek takarir di video",
         "updateLastCard": "Perbarui kartu Anki terakhir dengan tangkapan layar, audio, dan lainnya dari asbplayer",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "Ekspor kartu ke Anki tanpa membuka dialog.",
         "toggleSidePanel": "Tampilkan/sembunyikan panel samping",
         "toggleRepeat": "Aktifkan/nonaktifkan mode ulangi",

@@ -326,6 +326,18 @@ export class Anki {
         return this.findNotes(`"${this.settingsProvider.wordField}:${escapeAnkiQuery(word)}"`, ankiConnectUrl);
     }
 
+    async findNotesWithFieldsContainingWord(
+        word: string,
+        fields: string[],
+        ankiConnectUrl?: string
+    ): Promise<number[]> {
+        if (!fields.length) return [];
+        return this.findNotes(
+            fields.map((field) => `"${field}:*${escapeAnkiQuery(word)}*"`).join(' OR '),
+            ankiConnectUrl
+        );
+    }
+
     async findNotesWithWordGui(word: string, ankiConnectUrl?: string): Promise<number[]> {
         const response = await this._executeAction(
             'guiBrowse',

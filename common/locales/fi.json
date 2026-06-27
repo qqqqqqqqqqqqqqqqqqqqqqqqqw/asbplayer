@@ -49,6 +49,7 @@
         "none": "Tyhjä",
         "showAnkiDialog": "Näytä Anki-valintaikkuna",
         "updateLastCard": "Päivitä edellinen kortti",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Vie kortti"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "Pilkuilla eroteltu merkkijonoluettelo",
         "title": "Anki vienti",
         "updateLastCard": "Päivitä edellinen kortti",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL-osoite",
         "word": "Sana",
         "zoomIn": "Lähennä",
         "zoomOut": "Loitonna",
         "imagePreview": "Esikatselu/muokkaa",
         "quickSelectFtue": "{{shortcut}} valitse/suorittaa viimeksi käytetyn toiminnon."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Tee lahjoitus",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "Ota kuvakaappaus manuaalisesti, ohittaa se, joka otetaan automaattisesti kaivostoiminnassa.",
         "extensionToggleRecording": "Käynnistä tai lopeta äänen tallennus manuaalisesti, vaikka tekstitystiedosto ladataan.",
         "extensionUpdateLastCard": "Päivitä viime luotu Anki-kortti asbplayer-kaappauksella. Kun video synkronoidaan ilman tekstitystiedostoa, alkaa / pysäyttää äänen tallentamisen.",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "Säädä tekstityksen nopeutta +100ms",
         "increasePlaybackRate": "Nopeuta toistoa",
         "resetOffset": "Palauta tekstityksen siirtymä",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "Vaihda tekstitysraita 3 asbplayerissä",
         "toggleVideoSubtitleTracks": "Vaihda tekstitysraita asbplayerissä",
         "updateLastCard": "Päivitä viime luotu Anki kortti asbplayer-kaapattu kuvakaappaus, ääni, jne.",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "Vie kortti Ankiin, ohittaen valintaikkuna.",
         "toggleSidePanel": "Vaihda sivupaneelin tilaa",
         "toggleRepeat": "Vaihda toistotilaa",

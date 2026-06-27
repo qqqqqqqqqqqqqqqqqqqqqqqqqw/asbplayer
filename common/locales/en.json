@@ -1,6 +1,5 @@
 {
     "action": {
-        "apply": "Apply",
         "cancel": "Cancel",
         "close": "Close",
         "copy": "Copy",
@@ -93,6 +92,7 @@
         "tagList": "Comma-separated list of strings",
         "title": "Anki Export",
         "updateLastCard": "Update Last Card",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Word",
         "zoomIn": "Zoom In",
@@ -101,10 +101,8 @@
         "quickSelectFtue": "{{shortcut}} selects/executes the last-used action."
     },
     "cardSelectUi": {
-        "title": "Select Card to Update",
-        "searchPlaceholder": "Search by word or sentence...",
-        "noResults": "No cards found. Try a different search or make sure Anki is running.",
-        "multiSelect": "Select multiple"
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Donate",

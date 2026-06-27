@@ -1,265 +1,285 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
 import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
 import { useTranslation } from 'react-i18next';
 import { Anki, NoteInfo } from '@project/common/anki';
-
-const MULTI_SELECT_KEY = 'cardSelectMultiSelect';
+import { AnkiSettings } from '../settings';
+import Dialog from '@mui/material/Dialog';
+import Toolbar from '@mui/material/Toolbar';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import Stack from '@mui/material/Stack';
+import ListItem from '@mui/material/ListItem';
+import Tooltip from '@mui/material/Tooltip';
+import { ButtonBaseActions } from '@mui/material';
 
 interface Props {
     open: boolean;
     anki: Anki;
-    sentenceField?: string;
+    ankiSettings: AnkiSettings;
+    selectedNoteIds: number[];
     disabled?: boolean;
+    onUpdate: (noteIds: number[]) => Promise<void> | void;
     onSelect: (noteIds: number[]) => Promise<void> | void;
-    onCancel: () => void;
+    onClose: () => void;
 }
 
-export default function CardSelectView({ open, anki, sentenceField, disabled, onSelect, onCancel }: Props) {
-    const { t } = useTranslation();
-    const [notes, setNotes] = useState<NoteInfo[]>([]);
+const maxNoteCount = 50;
+
+const useSearchAnki = ({ anki, querier }: { anki: Anki; querier: (anki: Anki) => Promise<number[]> }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>();
-    const [search, setSearch] = useState('');
-    const [multiSelect, setMultiSelect] = useState(() => localStorage.getItem(MULTI_SELECT_KEY) === 'true');
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [notes, setNotes] = useState<NoteInfo[]>([]);
+    const searchRequestId = useRef<number>(0);
+
+    const search = useCallback(async () => {
+        try {
+            searchRequestId.current++;
+            const requestId = searchRequestId.current;
+            setLoading(true);
+
+            if (searchRequestId.current !== requestId) {
+                return;
+            }
+
+            const noteIds = await querier(anki);
+
+            if (searchRequestId.current !== requestId) {
+                return;
+            }
+
+            const sortedNoteIds = [...noteIds].sort((a, b) => b - a).slice(0, maxNoteCount);
+            const noteInfos = await anki.notesInfo(sortedNoteIds);
+
+            if (searchRequestId.current !== requestId) {
+                return;
+            }
+
+            await new Promise((resolve) => setTimeout(() => resolve(undefined), 2000));
+            setNotes(noteInfos);
+        } catch (e) {
+            setError(error);
+        } finally {
+            setLoading(false);
+        }
+    }, [querier, error, anki]);
+
+    // Search at least once to provide initial list
+    const searchRef = useRef<typeof search>(search);
+    useEffect(() => {
+        searchRef.current();
+    }, []);
+
+    return { notes, error, loading, search };
+};
+
+export default function CardSelectView({
+    open,
+    anki,
+    ankiSettings,
+    disabled,
+    selectedNoteIds,
+    onSelect,
+    onUpdate,
+    onClose,
+}: Props) {
+    const { t } = useTranslation();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [error, setError] = useState<string>();
+    const [shouldAutoCheck, setShouldAutoCheck] = useState<boolean>(false);
+    const shouldAutoCheckRef = useRef<boolean>(false);
+    shouldAutoCheckRef.current = shouldAutoCheck;
+    const updateButtonActionRef = useRef<ButtonBaseActions>(null);
+
+    const ankiQuerier = useCallback(
+        (anki: Anki) => {
+            const hasWordOrSentenceField = ankiSettings.sentenceField || ankiSettings.wordField;
+            if (!searchTerm || !hasWordOrSentenceField) {
+                return anki.findNotes('added:30');
+            }
+
+            const fields = [ankiSettings.wordField, ankiSettings.sentenceField].filter((f) => Boolean(f));
+            return anki.findNotesWithFieldsContainingWord(searchTerm, fields);
+        },
+        [searchTerm, ankiSettings]
+    );
+    const { notes, error: ankiError, loading, search: searchAnki } = useSearchAnki({ anki, querier: ankiQuerier });
+
+    const searchAnkiRef = useRef<typeof searchAnki>(searchAnki);
+    useEffect(() => {
+        if (open) {
+            setShouldAutoCheck(true);
+            searchAnkiRef.current();
+        }
+    }, [open]);
+
+    const onSelectRef = useRef<typeof onSelect>(onSelect);
+    onSelectRef.current = onSelect;
 
     useEffect(() => {
-        if (!open) {
-            setSearch('');
-            setError(undefined);
-            setNotes([]);
-            setSelectedIds(new Set());
-            return;
+        if (shouldAutoCheckRef.current && notes.length > 0) {
+            onSelectRef.current([notes[0].noteId]);
+            updateButtonActionRef.current?.focusVisible();
+        } else {
+            onSelectRef.current([]);
         }
+    }, [notes]);
 
-        let cancelled = false;
-        setLoading(true);
-        setError(undefined);
+    const handleUpdateSelected = useCallback(async () => {
+        if (selectedNoteIds.length === 0) return;
+        try {
+            await onUpdate([...selectedNoteIds]);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+        }
+    }, [selectedNoteIds, onUpdate]);
 
-        anki.findNotes('added:30')
-            .then((noteIds) => {
-                if (cancelled) return;
-                const sorted = [...noteIds].sort((a, b) => b - a).slice(0, 50);
-                return anki.notesInfo(sorted);
-            })
-            .then((infos) => {
-                if (cancelled || !infos) return;
-                setNotes(infos);
-            })
-            .catch((e) => {
-                if (cancelled) return;
-                setError(e instanceof Error ? e.message : String(e));
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [open, anki]);
-
-    const handleSelectSingle = useCallback(
+    const handleUpdateSingle = useCallback(
         async (noteId: number) => {
             try {
-                await onSelect([noteId]);
+                await onUpdate([noteId]);
             } catch (e) {
                 setError(e instanceof Error ? e.message : String(e));
             }
         },
-        [onSelect]
+        [onUpdate]
     );
 
-    const handleApply = useCallback(async () => {
-        if (selectedIds.size === 0) return;
-        try {
-            await onSelect([...selectedIds]);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : String(e));
-        }
-    }, [selectedIds, onSelect]);
+    const handleToggleId = useCallback(
+        (noteId: number) => {
+            if (selectedNoteIds.includes(noteId)) {
+                onSelect(selectedNoteIds.filter((n) => n !== noteId));
+            } else {
+                onSelect([...selectedNoteIds, noteId].sort());
+                updateButtonActionRef.current?.focusVisible();
+            }
+        },
+        [onSelect, selectedNoteIds]
+    );
 
-    const handleMultiSelectChange = useCallback((checked: boolean) => {
-        setMultiSelect(checked);
-        localStorage.setItem(MULTI_SELECT_KEY, String(checked));
-        setSelectedIds(new Set());
-    }, []);
-
-    const handleToggleId = useCallback((noteId: number) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(noteId)) next.delete(noteId);
-            else next.add(noteId);
-            return next;
-        });
-    }, []);
-
-    const filteredNotes = useMemo(() => {
-        if (!search.trim()) return notes;
-        const lower = search.toLowerCase();
-        return notes.filter((note) => {
-            const keyValue = Object.values(note.fields).find((f) => f.order === 0)?.value ?? '';
-            const sentence = sentenceField ? (note.fields[sentenceField]?.value ?? '') : '';
-            const combined = (keyValue + ' ' + sentence).toLowerCase();
-            return combined.includes(lower);
-        });
-    }, [notes, search, sentenceField]);
+    const handleSearchKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (e.key === 'Enter') {
+                searchAnki();
+            }
+        },
+        [searchAnki]
+    );
 
     if (!open) return null;
 
-    return (
-        <Box
-            sx={{
-                position: 'fixed',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'rgba(0,0,0,0.6)',
-                zIndex: (theme) => theme.zIndex.modal + 1,
-            }}
-            onClick={onCancel}
-        >
-            <Box
-                sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: 420,
-                    maxWidth: '90vw',
-                    maxHeight: '70vh',
-                    p: 2,
-                    gap: 1,
-                    bgcolor: 'rgba(18,18,18,0.97)',
-                    color: 'text.primary',
-                    borderRadius: 2,
-                    boxShadow: 8,
-                }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="h6">{t('cardSelectUi.title')}</Typography>
-                    <Typography variant="body2" sx={{ cursor: 'pointer', color: 'text.secondary' }} onClick={onCancel}>
-                        {t('action.cancel')}
-                    </Typography>
-                </Box>
+    const effectiveError = error || ankiError;
 
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    return (
+        <Dialog open={open} maxWidth="sm" fullWidth onClose={onClose}>
+            <Toolbar>
+                <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                    {t('cardSelectUi.title')}
+                </Typography>
+                <IconButton edge="end" disabled={disabled} onClick={onClose}>
+                    <CloseIcon />
+                </IconButton>
+            </Toolbar>
+
+            <DialogContent>
+                <Stack spacing={1}>
                     <TextField
                         size="small"
-                        placeholder={t('cardSelectUi.searchPlaceholder')}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        disabled={disabled || loading}
+                        placeholder={t('ankiDialog.searchInAnki')}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         autoFocus
-                        sx={{ flex: 1, mr: 1 }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon fontSize="small" />
-                                </InputAdornment>
-                            ),
+                        onKeyDown={handleSearchKeyDown}
+                        slotProps={{
+                            input: {
+                                endAdornment: (
+                                    <InputAdornment position="end" sx={{ mr: -1 }}>
+                                        <IconButton loading={loading} onClick={searchAnki}>
+                                            <SearchIcon fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            },
                         }}
                     />
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                size="small"
-                                checked={multiSelect}
-                                onChange={(e) => handleMultiSelectChange(e.target.checked)}
-                            />
-                        }
-                        label={
-                            <Typography variant="caption" noWrap>
-                                {t('cardSelectUi.multiSelect')}
-                            </Typography>
-                        }
-                        sx={{ m: 0, flexShrink: 0 }}
-                    />
-                </Box>
-
-                {error && <Alert severity="error">{error}</Alert>}
-
-                {loading || disabled ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
-                        <CircularProgress size={32} />
-                    </Box>
-                ) : (
-                    <List dense sx={{ flex: 1, overflow: 'auto' }}>
-                        {filteredNotes.length === 0 && !loading && (
-                            <Typography variant="body2" sx={{ color: 'text.secondary', p: 1 }}>
+                    {effectiveError && <Alert severity="error">{effectiveError}</Alert>}
+                    {!loading && notes.length === 0 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 {t('cardSelectUi.noResults')}
                             </Typography>
-                        )}
-                        {filteredNotes.map((note) => {
-                            const keyValue =
-                                Object.values(note.fields).find((f) => f.order === 0)?.value ?? `Note ${note.noteId}`;
-                            const rawSentence = sentenceField ? (note.fields[sentenceField]?.value ?? '') : '';
-                            const sentence = rawSentence.replace(/<[^>]+>/g, '').slice(0, 80);
-                            if (multiSelect) {
+                        </Box>
+                    )}
+                    {!loading && notes.length > 0 && (
+                        <List dense sx={{ flex: 1, overflow: 'auto' }}>
+                            {notes.map((note) => {
+                                let preview = ankiSettings.sentenceField
+                                    ? (note.fields[ankiSettings.sentenceField]?.value ?? '')
+                                    : '';
+                                if (!preview) {
+                                    preview = ankiSettings.wordField
+                                        ? (note.fields[ankiSettings.wordField]?.value ?? '')
+                                        : '';
+                                }
+                                preview = preview.replace(/<[^>]+>/g, '').slice(0, 80);
                                 return (
-                                    <ListItemButton
+                                    <ListItem
                                         key={note.noteId}
-                                        onClick={() => handleToggleId(note.noteId)}
-                                        disabled={disabled}
-                                        dense
+                                        sx={{ p: 0 }}
+                                        secondaryAction={
+                                            <IconButton edge="end" onClick={() => handleUpdateSingle(note.noteId)}>
+                                                <NoteAddIcon />
+                                            </IconButton>
+                                        }
                                     >
-                                        <Checkbox
-                                            edge="start"
-                                            size="small"
-                                            checked={selectedIds.has(note.noteId)}
-                                            tabIndex={-1}
-                                            disableRipple
-                                        />
-                                        <ListItemText
-                                            primary={keyValue}
-                                            secondary={sentence || note.modelName}
-                                            primaryTypographyProps={{ noWrap: true }}
-                                            secondaryTypographyProps={{ noWrap: true }}
-                                        />
-                                    </ListItemButton>
+                                        <ListItemButton onClick={() => handleToggleId(note.noteId)}>
+                                            <Checkbox
+                                                edge="start"
+                                                size="small"
+                                                checked={selectedNoteIds.includes(note.noteId)}
+                                                tabIndex={-1}
+                                                disableRipple
+                                            />
+                                            <Tooltip title={note.noteId}>
+                                                <ListItemText
+                                                    primary={preview}
+                                                    slotProps={{
+                                                        primary: { noWrap: true },
+                                                        secondary: { noWrap: true },
+                                                    }}
+                                                />
+                                            </Tooltip>
+                                        </ListItemButton>
+                                    </ListItem>
                                 );
-                            }
-                            return (
-                                <ListItemButton
-                                    key={note.noteId}
-                                    onClick={() => handleSelectSingle(note.noteId)}
-                                    disabled={disabled}
-                                >
-                                    <ListItemText
-                                        primary={keyValue}
-                                        secondary={sentence || note.modelName}
-                                        primaryTypographyProps={{ noWrap: true }}
-                                        secondaryTypographyProps={{ noWrap: true }}
-                                    />
-                                </ListItemButton>
-                            );
-                        })}
-                    </List>
-                )}
+                            })}
+                        </List>
+                    )}
+                </Stack>
+            </DialogContent>
 
-                {multiSelect && (
-                    <Button
-                        variant="contained"
-                        disabled={selectedIds.size === 0 || disabled}
-                        onClick={handleApply}
-                        fullWidth
-                        size="small"
-                    >
-                        {t('action.apply')} {selectedIds.size > 0 && `(${selectedIds.size})`}
-                    </Button>
-                )}
-            </Box>
-        </Box>
+            <DialogActions>
+                <Button
+                    action={updateButtonActionRef}
+                    disabled={selectedNoteIds.length === 0 || disabled || loading}
+                    onClick={handleUpdateSelected}
+                >
+                    {t('ankiDialog.updateSelectedCards', { count: selectedNoteIds.length })}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 }

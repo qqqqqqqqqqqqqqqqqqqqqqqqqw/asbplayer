@@ -49,6 +49,7 @@
         "none": "Nic nie rób",
         "showAnkiDialog": "Pokaż okno dialogowe Anki",
         "updateLastCard": "Zaktualizuj ostatnią kartę",
+        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Wyeksportuj kartę"
     },
     "postMinePlayback": {
@@ -91,12 +92,17 @@
         "tagList": "Lista ciągów znaków oddzielonych przecinkami",
         "title": "Eksport Anki",
         "updateLastCard": "Zaktualizuj ostatnią kartę",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Słowo",
         "zoomIn": "Przybliż",
         "zoomOut": "Oddal",
         "imagePreview": "Click to preview/edit",
         "quickSelectFtue": "{{shortcut}} selects the last-used action."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Wesprzyj",
@@ -122,6 +128,7 @@
         "extensionTakeScreenshot": "Manualnie wykonaj zrzut ekranu",
         "extensionToggleRecording": "Manualne rozpocznij/zatrzymaj nagrywanie audio",
         "extensionUpdateLastCard": "Zaktualizuj ostatnio utworzoną kartę Anki o media przechwycone przez asbplayer. Jeśli wideo jest zsynchronizowane bez pliku z napisami",
+        "extensionSelectCardToUpdate": "Open card search dialog to select a specific Anki card to update with asbplayer-captured media.",
         "increaseOffset": "Przestaw przesunięcie napisów o +100ms",
         "increasePlaybackRate": "Zwiększ prędkość odtwarzania",
         "resetOffset": "Wyzeruj przesunięcie napisów",
@@ -150,6 +157,7 @@
         "toggleVideoSubtitleTrack3": "Przełącz ścieżkę napisów 3 w wideo",
         "toggleVideoSubtitleTracks": "Przełącz ścieżki napisów w wideo",
         "updateLastCard": "Zaktualizuj ostatnio zapisaną kartę Anki o zrzuty ekranu",
+        "updateSelectedCard": "Open card search dialog to select which Anki card to update with asbplayer-captured screenshot, audio, etc.",
         "exportCard": "Export card to Anki, bypassing dialog.",
         "toggleSidePanel": "Przełącz panel boczny",
         "toggleRepeat": "Przełącz tryb zapętlenia",
