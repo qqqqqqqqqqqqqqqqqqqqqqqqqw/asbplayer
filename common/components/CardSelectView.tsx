@@ -120,6 +120,7 @@ export default function CardSelectView({
     const searchAnkiRef = useRef<typeof searchAnki>(searchAnki);
     useEffect(() => {
         if (open) {
+            setSearchTerm('');
             setShouldAutoCheck(true);
             searchAnkiRef.current();
         }
