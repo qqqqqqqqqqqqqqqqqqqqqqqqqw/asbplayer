@@ -2337,7 +2337,7 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                 const ignoredText = t('settings.dictionaryTokenStateIgnored');
                                 const ignoredReading = t('settings.dictionaryTokenStateIgnoredReading');
                                 const ignoredStart = localizedMaturity.length + 1;
-                                text = `${localizedMaturity} ${ignoredText}`;
+                                text = `${localizedMaturity}·${ignoredText}`;
                                 tokens.push({
                                     pos: [localizedMaturity.length, ignoredStart],
                                     status: tokenStatus,
