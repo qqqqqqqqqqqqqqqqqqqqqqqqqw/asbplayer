@@ -50,7 +50,6 @@
         "none": "Tidak Ada",
         "showAnkiDialog": "Tampilkan Dialog Anki",
         "updateLastCard": "Perbarui Kartu Terakhir",
-        "showUpdateCardDialog": "Select card to update",
         "exportCard": "Ekspor Kartu"
     },
     "postMinePlayback": {
