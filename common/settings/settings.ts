@@ -784,7 +784,6 @@ export interface KeyBindSet {
     readonly copySubtitle: KeyBind;
     readonly ankiExport: KeyBind;
     readonly updateLastCard: KeyBind;
-    readonly updateSelectedCard: KeyBind;
     readonly exportCard: KeyBind;
     readonly takeScreenshot: KeyBind;
     readonly toggleRecording: KeyBind;
