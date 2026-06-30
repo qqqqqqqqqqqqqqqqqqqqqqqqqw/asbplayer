@@ -231,6 +231,8 @@ const Popup = ({
                             extensionSupportsDictionary
                             extensionSupportsDictionaryBrowser
                             extensionSupportsDictionaryWaniKani
+                            extensionSupportsDictionaryMatchAcrossScripts
+                            extensionSupportsDictionaryTokenAnnotationConfig
                             extensionSupportsSeekableTrackSetting
                             extensionSupportsAutoCopyableTrackSetting
                             extensionSupportsOffsetTrackSetting

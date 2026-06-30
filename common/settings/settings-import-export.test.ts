@@ -33,6 +33,7 @@ it('validates last languages synced', () => {
 it('validates exported settings', () => {
     validateSettings({
         ankiConnectUrl: 'http://127.0.0.1:8765',
+        ankiConnectApiKey: '',
         deck: 'Sentences',
         noteType: 'Sentence',
         sentenceField: '表面',
@@ -170,6 +171,7 @@ it('validates exported settings', () => {
                 dictionaryColorizeOnHoverOnly: true,
                 dictionaryHighlightOnHover: true,
                 dictionaryTokenMatchStrategy: TokenMatchStrategy.ANY_FORM_COLLECTED,
+                dictionaryMatchAcrossScripts: false,
                 dictionaryTokenMatchStrategyPriority: TokenMatchStrategyPriority.EXACT,
                 dictionaryYomitanUrl: 'http://127.0.0.1:19633',
                 dictionaryYomitanParser: 'scanning-parser',
@@ -199,6 +201,60 @@ it('validates exported settings', () => {
                     { display: true, color: '#0000FF', alpha: 'FF' },
                     { display: false, color: '#FFFFFF', alpha: 'FF' },
                 ],
+                dictionaryTokenAnnotationConfig: {
+                    colorizeEnabled: true,
+                    video: {
+                        color: { onHoverEnabled: false, size: 1 },
+                        reading: { onHoverEnabled: false, size: 0.5 },
+                        frequency: { onHoverEnabled: false, size: 0.3 },
+                        pitchAccent: { onHoverEnabled: true, size: 0.1 },
+                    },
+                    subtitlePlayer: {
+                        color: { onHoverEnabled: false, size: 1 },
+                        reading: { onHoverEnabled: false, size: 0.5 },
+                        frequency: { onHoverEnabled: false, size: 0.5 },
+                        pitchAccent: { onHoverEnabled: true, size: 0.1 },
+                    },
+                    onStatuses: [
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                    ],
+                    onStates: [
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                    ],
+                },
             },
             {
                 dictionaryColorizeSubtitles: false,
@@ -206,6 +262,7 @@ it('validates exported settings', () => {
                 dictionaryColorizeOnHoverOnly: true,
                 dictionaryHighlightOnHover: false,
                 dictionaryTokenMatchStrategy: TokenMatchStrategy.LEMMA_OR_EXACT_FORM_COLLECTED,
+                dictionaryMatchAcrossScripts: true,
                 dictionaryTokenMatchStrategyPriority: TokenMatchStrategyPriority.LEMMA,
                 dictionaryYomitanUrl: 'http://127.0.0.1:19634',
                 dictionaryYomitanParser: 'mecab',
@@ -235,6 +292,60 @@ it('validates exported settings', () => {
                     { display: true, color: '#0000FF', alpha: 'FF' },
                     { display: true, color: '#FFFFFF', alpha: 'FF' },
                 ],
+                dictionaryTokenAnnotationConfig: {
+                    colorizeEnabled: false,
+                    video: {
+                        color: { onHoverEnabled: true, size: 1 },
+                        reading: { onHoverEnabled: true, size: 0.5 },
+                        frequency: { onHoverEnabled: true, size: 0.3 },
+                        pitchAccent: { onHoverEnabled: true, size: 0.1 },
+                    },
+                    subtitlePlayer: {
+                        color: { onHoverEnabled: false, size: 1 },
+                        reading: { onHoverEnabled: false, size: 0.5 },
+                        frequency: { onHoverEnabled: false, size: 0.5 },
+                        pitchAccent: { onHoverEnabled: false, size: 0.1 },
+                    },
+                    onStatuses: [
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                    ],
+                    onStates: [
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                    ],
+                },
             },
             {
                 dictionaryColorizeSubtitles: false,
@@ -242,6 +353,7 @@ it('validates exported settings', () => {
                 dictionaryColorizeOnHoverOnly: false,
                 dictionaryHighlightOnHover: true,
                 dictionaryTokenMatchStrategy: TokenMatchStrategy.LEMMA_FORM_COLLECTED,
+                dictionaryMatchAcrossScripts: false,
                 dictionaryTokenMatchStrategyPriority: TokenMatchStrategyPriority.BEST_KNOWN,
                 dictionaryYomitanUrl: 'http://127.0.0.1:19635',
                 dictionaryYomitanParser: 'scanning-parser',
@@ -271,6 +383,60 @@ it('validates exported settings', () => {
                     { display: true, color: '#FF0000', alpha: 'FF' },
                     { display: false, color: '#FFFF00', alpha: '00' },
                 ],
+                dictionaryTokenAnnotationConfig: {
+                    colorizeEnabled: false,
+                    video: {
+                        color: { onHoverEnabled: false, size: 1 },
+                        reading: { onHoverEnabled: false, size: 0.5 },
+                        frequency: { onHoverEnabled: false, size: 0.3 },
+                        pitchAccent: { onHoverEnabled: false, size: 0.1 },
+                    },
+                    subtitlePlayer: {
+                        color: { onHoverEnabled: true, size: 1 },
+                        reading: { onHoverEnabled: true, size: 0.5 },
+                        frequency: { onHoverEnabled: true, size: 0.5 },
+                        pitchAccent: { onHoverEnabled: true, size: 0.1 },
+                    },
+                    onStatuses: [
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                        {
+                            reading: false,
+                            frequency: false,
+                            pitchAccent: false,
+                        },
+                    ],
+                    onStates: [
+                        {
+                            reading: true,
+                            frequency: true,
+                            pitchAccent: true,
+                        },
+                    ],
+                },
             },
         ],
     });

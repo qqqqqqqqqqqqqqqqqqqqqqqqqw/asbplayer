@@ -45,6 +45,9 @@ const dictionaryTrackSchema = {
         dictionaryTokenMatchStrategy: {
             type: 'string',
         },
+        dictionaryMatchAcrossScripts: {
+            type: 'boolean',
+        },
         dictionaryTokenMatchStrategyPriority: {
             type: 'string',
         },
@@ -132,7 +135,114 @@ const dictionaryTrackSchema = {
                 required: ['display', 'color', 'alpha'],
             },
         },
+        dictionaryTokenAnnotationConfig: {
+            type: 'object',
+            properties: {
+                colorizeEnabled: {
+                    type: 'boolean',
+                },
+                video: {
+                    type: 'object',
+                    properties: {
+                        color: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        reading: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        frequency: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        pitchAccent: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                    },
+                    required: ['color', 'reading', 'frequency', 'pitchAccent'],
+                },
+                subtitlePlayer: {
+                    type: 'object',
+                    properties: {
+                        color: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        reading: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        frequency: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                        pitchAccent: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
+                    },
+                    required: ['color', 'reading', 'frequency', 'pitchAccent'],
+                },
+                onStatuses: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            reading: { type: 'boolean' },
+                            frequency: { type: 'boolean' },
+                            pitchAccent: { type: 'boolean' },
+                        },
+                        required: ['reading', 'frequency', 'pitchAccent'],
+                    },
+                },
+                onStates: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            reading: { type: 'boolean' },
+                            frequency: { type: 'boolean' },
+                            pitchAccent: { type: 'boolean' },
+                        },
+                        required: ['reading', 'frequency', 'pitchAccent'],
+                    },
+                },
+            },
+            required: ['colorizeEnabled', 'video', 'subtitlePlayer', 'onStatuses', 'onStates'],
+        },
     },
+    required: [
+        'dictionaryColorizeSubtitles',
+        'dictionaryColorizeOnHoverOnly',
+        'dictionaryHighlightOnHover',
+        'dictionaryTokenMatchStrategy',
+        'dictionaryTokenMatchStrategyPriority',
+        'dictionaryYomitanUrl',
+        'dictionaryYomitanScanLength',
+        'dictionaryTokenReadingAnnotation',
+        'dictionaryDisplayIgnoredTokenReadings',
+        'dictionaryTokenFrequencyAnnotation',
+        'dictionaryAnkiDecks',
+        'dictionaryAnkiWordFields',
+        'dictionaryAnkiSentenceFields',
+        'dictionaryAnkiSentenceTokenMatchStrategy',
+        'dictionaryAnkiMatureCutoff',
+        'dictionaryAnkiTreatSuspended',
+        'dictionaryTokenStyling',
+        'dictionaryTokenStylingThickness',
+        'dictionaryColorizeFullyKnownTokens',
+        'dictionaryTokenStatusColors',
+    ],
 };
 const textSubtitleSettingsSchema = {
     id: '/TextSubtitleSettings',
@@ -198,6 +308,9 @@ const settingsSchema = {
     type: 'object',
     properties: {
         ankiConnectUrl: {
+            type: 'string',
+        },
+        ankiConnectApiKey: {
             type: 'string',
         },
         deck: {
@@ -395,6 +508,7 @@ const settingsSchema = {
                 copySubtitle: { $ref: '/KeyBind' },
                 ankiExport: { $ref: '/KeyBind' },
                 updateLastCard: { $ref: '/KeyBind' },
+                updateSelectedCard: { $ref: '/KeyBind' },
                 exportCard: { $ref: '/KeyBind' },
                 takeScreenshot: { $ref: '/KeyBind' },
                 toggleRecording: { $ref: '/KeyBind' },
@@ -567,6 +681,12 @@ const settingsSchema = {
             items: {
                 $ref: '/DictionaryTrack',
             },
+        },
+        thumbnailPreview: {
+            type: 'boolean',
+        },
+        subtitleAboveThumbnail: {
+            type: 'boolean',
         },
         _schema: {
             type: 'number',

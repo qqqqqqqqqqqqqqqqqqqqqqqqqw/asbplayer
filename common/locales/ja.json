@@ -34,7 +34,8 @@
         "revert": "元に戻す",
         "userGuide": "ユーザーガイド",
         "search": "検索",
-        "reload": "再読み込み"
+        "reload": "再読み込み",
+        "findPlaceholder": "Search by text or /regex/"
     },
     "about": {
         "title": "asbplayerについて",
@@ -91,12 +92,17 @@
         "tagList": "テキストのリスト（カンマ「,」区切り）",
         "title": "Anki エクスポート",
         "updateLastCard": "最後のカードを更新する",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "単語",
         "zoomIn": "ズームイン",
         "zoomOut": "ズームアウト",
         "imagePreview": "プレビュー・編集",
         "quickSelectFtue": "{{shortcut}}は最後に使用したアクションを選択/実行します。"
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "寄付",
@@ -203,7 +209,8 @@
         "subtitleFileNotOpen": "字幕ファイル「{{fileName}} 」が開いていません",
         "unknownExtension": "{{fileName}}の拡張子を確認できません",
         "unsupportedExtension": "対応していない拡張子です：{{extension}}",
-        "videoPlayerDragAndDropNotAllowed": "動画プレイヤーはドロップしたファイルを受け取れません。動画のフレーム外にファイルをドロップしてください。"
+        "videoPlayerDragAndDropNotAllowed": "動画プレイヤーはドロップしたファイルを受け取れません。動画のフレーム外にファイルをドロップしてください。",
+        "restoreSessionFailed": "前回のセッションの復元に失敗しました。"
     },
     "extension": {
         "settings": {
@@ -327,7 +334,8 @@
         "extensionUpdateAvailable": "拡張機能の<1>アップデート</1>を公開しました。",
         "noSubtitles": "字幕はありません",
         "videoElementsDetected": "asbplayer を使用するには字幕をロードしてください。",
-        "noVideoElementsDetected": "動画を探知できませんでした。"
+        "noVideoElementsDetected": "動画を探知できませんでした。",
+        "restoreLastSession": "前回のセッションを復元"
     },
     "activeTabPermissionRequest": {
         "title": "音声記録を有効にしてください",
@@ -353,6 +361,7 @@
         "alwaysPlayOnSubtitleRepeat": "「今の、または前の字幕冒頭に移動」の実行後、再生する",
         "anki": "Anki",
         "ankiConnectUrl": "AnkiConnect の URL",
+        "ankiConnectApiKey": "Anki Connect の API キー",
         "audioField": "音声フィールド",
         "audioPaddingEnd": "音声の余白終了",
         "audioPaddingStart": "音声の余白開始",
@@ -428,6 +437,8 @@
         "subtitleAlignment": "字幕の表示位置",
         "subtitleAlignmentBottom": "下部",
         "subtitleAlignmentTop": "上部",
+        "subtitleAboveThumbnail": "字幕をサムネイルの前面に表示",
+        "thumbnailPreview": "プレビューサムネイルを表示",
         "subtitleBlur": "字幕のぼかし",
         "subtitleTrack": "字幕トラック",
         "allSubtitleTracks": "全て",
@@ -492,6 +503,7 @@
         "dictionaryTokenMatchStrategyLemmaOrExactFormCollected": "見出し語か同じ語形が対象",
         "dictionaryTokenMatchStrategyLemmaFormCollected": "見出し語のみが対象",
         "dictionaryTokenMatchStrategyExactFormCollected": "同じ語形のみが対象",
+        "dictionaryMatchAcrossScripts": "Match across language scripts",
         "dictionaryTokenMatchStrategyPriority": "カードの優先基準",
         "dictionaryTokenMatchStrategyPriorityExact": "同じ語形がフィールドに含まれている",
         "dictionaryTokenMatchStrategyPriorityLemma": "見出しごがフィールドに含まれている",
@@ -511,6 +523,8 @@
         "dictionaryTokenReadingAnnotationUnknownOrBelow": "新規以下",
         "dictionaryTokenReadingAnnotationNever": "表示しない",
         "dictionaryDisplayIgnoredTokenReadings": "無視した単語の読み方を表示",
+        "dictionaryTokenPitchAccentAnnotation": "Display pitch accent (Japanese)",
+        "dictionaryTokenPitchAccentAnnotationUnderlineOverlineStyle": "The \"{{style}}\" style may get mistaken for pitch accent markings, enabling \"{{pitchAccentOnHover}}\" is recommended.",
         "dictionaryTokenFrequencyAnnotation": "単語頻度を表示",
         "dictionaryTokenFrequencyAnnotationAlways": "いつも",
         "dictionaryTokenFrequencyAnnotationUncollectedOnly": "未収集のみ",
@@ -526,6 +540,7 @@
         "dictionaryAnkiTreatSuspendedNormal": "普通",
         "dictionaryWaniKaniSection": "WaniKani",
         "dictionaryWaniKaniApiToken": "WaniKani API token",
+        "dictionaryWaniKaniApiTokenHelperText": "Instructions to get an API token are <0>here</0>.",
         "dictionaryTokenStyling": "色づけた単語のスタイル",
         "dictionaryTokenStylingText": "テキスト",
         "dictionaryTokenStylingBackground": "背景",
@@ -534,6 +549,15 @@
         "dictionaryTokenStylingOutline": "縁取り",
         "dictionaryTokenStylingOutlineHelperText": "「字幕の縁取りの太さ」を0に設定する必要があるかもしれません。",
         "dictionaryTokenStylingThickness": "線の太さ",
+        "dictionaryTokenAnnotationTargetVideo": "Video",
+        "dictionaryTokenAnnotationTargetSubtitlePlayer": "Subtitle list",
+        "dictionaryTokenAnnotationHoverColor": "Only display word color on hover",
+        "dictionaryTokenAnnotationHoverReading": "Only display word reading on hover",
+        "dictionaryTokenAnnotationHoverFrequency": "Only display word frequency on hover",
+        "dictionaryTokenAnnotationHoverPitchAccent": "Only display pitch accent on hover",
+        "dictionaryTokenAnnotationReadingSize": "Word reading size",
+        "dictionaryTokenAnnotationFrequencySize": "Word frequency size",
+        "dictionaryTokenAnnotationPitchAccentSize": "Pitch accent size",
         "dictionaryColorizeFullyKnownTokens": "熟知している単語を色づける",
         "dictionaryTokenStatus5": "熟知",
         "dictionaryTokenStatusReading5": "じゅくち",
@@ -548,6 +572,7 @@
         "dictionaryTokenStatus0": "未収集",
         "dictionaryTokenStatusReading0": "みしゅうしゅう",
         "dictionaryTokenStateIgnored": "無視",
+        "dictionaryTokenStateIgnoredReading": "むし",
         "dictionaryBuildAnkiStarted": "変更されたカードをクエリしています",
         "dictionaryBuildWaniKaniStarted": "Syncing WaniKani vocabulary",
         "dictionaryTokenStatusAlpha": "アルファ値",
@@ -639,6 +664,7 @@
         "occurrences": "出現数",
         "sentenceStatistics": "文章統計",
         "currentWatch": "今回の視聴",
+        "projected": "Projected",
         "projectedRewatch": "次回の視聴",
         "rewatchSelect": "視聴数",
         "rewatchOption": "視聴 #{{rewatch}}",
@@ -649,6 +675,7 @@
         "noMoreRewatches": "今回の視聴ですべてのi+1文章のマイニングが完了します。",
         "totalSentences": "合計文数",
         "knownSentences": "既知文数",
+        "projectMature": "Treat upcoming material as mature",
         "anki": {
             "ankiStatistics": "Ankiの統計",
             "dueByToday": "今日の復習",
@@ -657,18 +684,27 @@
             "suspended": "休止中",
             "deckBreakdown": "デッキ内訳",
             "modelBreakdown": "モデル内訳",
+            "newCardsCount": "{{count}} new cards",
+            "projectReviewedCards": "Treat all reviewed cards as mature",
+            "knownDeckWords": "Anki known words",
             "ankiNeedsToBeRunning": "統計を処理するにはAnkiを起動してください。",
             "noDeckBreakdown": "現在のメディアに一致するAnkiカードは見つかりませんでした。",
             "info": {
-                "ankiStatistics": "メディア内の単語とAnkiカードの照合。"
+                "ankiStatistics": "メディア内の単語とAnkiカードの照合。",
+                "projectedCards": "Preview your stats by treating past cards or new cards (in the order they will be introduced) as Mature."
             }
         },
         "waniKani": {
             "waniKaniStatistics": "WaniKani statistics",
+            "projectLevel": "WaniKani level",
+            "projectedWords": "WaniKani known words",
+            "projectedLevel": "Level {{level}}",
+            "currentKnowledge": "Current WaniKani",
             "waniKaniNeedsToBeAvailable": "WaniKani statistics could not be loaded.",
             "noWaniKaniBreakdown": "No matching WaniKani vocabulary was found for this media.",
             "info": {
-                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media."
+                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media.",
+                "projectedLevel": "Preview your stats by treating all words at or below a level as Mature."
             }
         },
         "info": {
@@ -694,8 +730,12 @@
         "jimakuApiKey": "JimakuのAPIキー",
         "jimakuApiKeyAutosaveHint": "自動的に保存されます。APIキーは<0>こちらから</0>入手できます。",
         "entries": "検索結果",
+        "recentEntries": "Recent",
         "noEntries": "検索結果はありません",
         "availableFiles": "ファイル",
-        "noFiles": "ファイルはありません"
+        "noFiles": "ファイルはありません",
+        "searchCategory": "Search category",
+        "categoryAnime": "Anime",
+        "categoryDrama": "Drama"
     }
 }

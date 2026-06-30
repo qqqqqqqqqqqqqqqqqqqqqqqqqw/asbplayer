@@ -34,7 +34,8 @@
         "revert": "Revert",
         "userGuide": "User guide",
         "search": "Search",
-        "reload": "Reload"
+        "reload": "Reload",
+        "findPlaceholder": "Search by text or /regex/"
     },
     "about": {
         "title": "About asbplayer",
@@ -91,12 +92,17 @@
         "tagList": "Comma-separated list of strings",
         "title": "Anki Export",
         "updateLastCard": "Update Last Card",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Word",
         "zoomIn": "Zoom In",
         "zoomOut": "Zoom Out",
         "imagePreview": "Preview/edit",
         "quickSelectFtue": "{{shortcut}} selects/executes the last-used action."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Donate",
@@ -203,7 +209,8 @@
         "subtitleFileNotOpen": "Subtitle file {{fileName}} is not open.",
         "unknownExtension": "Unable to determine extension of {{fileName}}",
         "unsupportedExtension": "Unsupported extension {{extension}}",
-        "videoPlayerDragAndDropNotAllowed": "Video player cannot receive dropped files. Drop outside of the video frame instead."
+        "videoPlayerDragAndDropNotAllowed": "Video player cannot receive dropped files. Drop outside of the video frame instead.",
+        "restoreSessionFailed": "Failed to restore last session. The files may have been moved or deleted."
     },
     "extension": {
         "settings": {
@@ -327,7 +334,8 @@
         "extensionUpdateAvailable": "An extension <1>update</1> is available.",
         "noSubtitles": "No subtitles",
         "videoElementsDetected": "Load subtitles onto a video to start using asbplayer.",
-        "noVideoElementsDetected": "No videos detected."
+        "noVideoElementsDetected": "No videos detected.",
+        "restoreLastSession": "Restore last session"
     },
     "activeTabPermissionRequest": {
         "title": "Enable audio recording",
@@ -353,6 +361,7 @@
         "alwaysPlayOnSubtitleRepeat": "Always play (unpause) after invoking above shortcut",
         "anki": "Anki",
         "ankiConnectUrl": "Anki Connect URL",
+        "ankiConnectApiKey": "Anki Connect API Key",
         "audioField": "Audio Field",
         "audioPaddingEnd": "Audio Padding End",
         "audioPaddingStart": "Audio Padding Start",
@@ -404,7 +413,7 @@
         "rememberSubtitleOffset": "Remember subtitle offset",
         "sentenceField": "Sentence Field (all tracks)",
         "streamingVideo": "Streaming Video",
-        "styling": "Styling",
+        "styling": "Styling and Hover",
         "styleKey": "Style Key",
         "styleValue": "Style Value",
         "sourceField": "Source Field",
@@ -430,6 +439,8 @@
         "subtitleAlignment": "Subtitle Alignment",
         "subtitleAlignmentBottom": "Bottom",
         "subtitleAlignmentTop": "Top",
+        "subtitleAboveThumbnail": "Subtitle above thumbnail",
+        "thumbnailPreview": "Show preview thumbnails",
         "subtitleBlur": "Subtitle blur",
         "subtitleTrack": "Subtitle Track",
         "allSubtitleTracks": "All",
@@ -472,7 +483,7 @@
         "ftueAnnotation": "Subtitle annotation features are now available.",
         "annotationHelperText": "Annotation requires <0>Yomitan API</0> to function.",
         "annotationNoExtensionWarn": "Installing the asbplayer extension is recommended to prevent your browser from deleting manually stored words. Export your settings before installing the extension to preserve your data.",
-        "annotationLocalAnkiHelperText": "Word status prioritizes your local word collection over your Anki word database. Collect words by importing them here, or by hovering over subtitles and using the <0>keyboard shortcuts</0>.",
+        "annotationLocalAnkiHelperText": "Word status prioritizes your local word collection over your external word databases. Collect words by importing them here, or by hovering over subtitles and using the <0>keyboard shortcuts</0>.",
         "manageWords": "My word database",
         "buildAnkiCache": "Re-Build Anki word database",
         "buildAnkiCacheHelperText": "The Anki word database is automatically updated during playback when a track is enabled and Anki is connectable.",
@@ -494,6 +505,7 @@
         "dictionaryTokenMatchStrategyLemmaOrExactFormCollected": "Lemma or exact form collected",
         "dictionaryTokenMatchStrategyLemmaFormCollected": "Lemma form collected",
         "dictionaryTokenMatchStrategyExactFormCollected": "Exact form collected",
+        "dictionaryMatchAcrossScripts": "Match across language scripts",
         "dictionaryTokenMatchStrategyPriority": "Card choice priority",
         "dictionaryTokenMatchStrategyPriorityExact": "Field contains exact form",
         "dictionaryTokenMatchStrategyPriorityLemma": "Field contains lemma",
@@ -521,6 +533,8 @@
         "dictionaryUnknownTokenDefinitionScope": "Show definitions for",
         "dictionaryUnknownTokenDefinitionScopeUncollectedOnly": "Uncollected words only",
         "dictionaryUnknownTokenDefinitionScopeUncollectedAndUnknown": "Uncollected and unknown words",
+        "dictionaryTokenPitchAccentAnnotation": "Display pitch accent (Japanese)",
+        "dictionaryTokenPitchAccentAnnotationUnderlineOverlineStyle": "The \"{{style}}\" style may get mistaken for pitch accent markings, enabling \"{{pitchAccentOnHover}}\" is recommended.",
         "dictionaryTokenFrequencyAnnotation": "Display word frequency",
         "dictionaryTokenFrequencyAnnotationAlways": "Always",
         "dictionaryTokenFrequencyAnnotationUncollectedOnly": "Uncollected only",
@@ -536,6 +550,7 @@
         "dictionaryAnkiTreatSuspendedNormal": "Normal",
         "dictionaryWaniKaniSection": "WaniKani",
         "dictionaryWaniKaniApiToken": "WaniKani API token",
+        "dictionaryWaniKaniApiTokenHelperText": "Instructions to get an API token are <0>here</0>.",
         "dictionaryTokenStyling": "Word color style",
         "dictionaryTokenStylingText": "Text",
         "dictionaryTokenStylingBackground": "Background",
@@ -544,6 +559,15 @@
         "dictionaryTokenStylingOutline": "Outline",
         "dictionaryTokenStylingOutlineHelperText": "You may need to set Subtitle Outline Thickness in Subtitle Appearance to 0 for the best results.",
         "dictionaryTokenStylingThickness": "Thickness",
+        "dictionaryTokenAnnotationTargetVideo": "Video",
+        "dictionaryTokenAnnotationTargetSubtitlePlayer": "Subtitle list",
+        "dictionaryTokenAnnotationHoverColor": "Only display word color on hover",
+        "dictionaryTokenAnnotationHoverReading": "Only display word reading on hover",
+        "dictionaryTokenAnnotationHoverFrequency": "Only display word frequency on hover",
+        "dictionaryTokenAnnotationHoverPitchAccent": "Only display pitch accent on hover",
+        "dictionaryTokenAnnotationReadingSize": "Word reading size",
+        "dictionaryTokenAnnotationFrequencySize": "Word frequency size",
+        "dictionaryTokenAnnotationPitchAccentSize": "Pitch accent size",
         "dictionaryColorizeFullyKnownTokens": "Colorize fully known words",
         "dictionaryTokenStatus5": "Mature",
         "dictionaryTokenStatusReading5": "Reading",
@@ -558,6 +582,7 @@
         "dictionaryTokenStatus0": "Uncollected",
         "dictionaryTokenStatusReading0": "Reading",
         "dictionaryTokenStateIgnored": "Ignored",
+        "dictionaryTokenStateIgnoredReading": "Reading",
         "dictionaryBuildAnkiStarted": "Querying Anki for modified cards",
         "dictionaryBuildWaniKaniStarted": "Syncing WaniKani vocabulary",
         "dictionaryTokenStatusAlpha": "Alpha",
@@ -649,6 +674,7 @@
         "occurrences": "Occurrences",
         "sentenceStatistics": "Sentence statistics",
         "currentWatch": "Current watch",
+        "projected": "Projected",
         "projectedRewatch": "Projected rewatch",
         "rewatchSelect": "Rewatch",
         "rewatchOption": "Rewatch #{{rewatch}}",
@@ -659,6 +685,7 @@
         "noMoreRewatches": "There will be no more mining after all i+1 sentences this session.",
         "totalSentences": "Total sentences",
         "knownSentences": "Known sentences",
+        "projectMature": "Treat upcoming material as mature",
         "anki": {
             "ankiStatistics": "Anki statistics",
             "dueByToday": "Due by today",
@@ -667,28 +694,37 @@
             "suspended": "Suspended",
             "deckBreakdown": "Deck breakdown",
             "modelBreakdown": "Model breakdown",
+            "newCardsCount": "{{count}} new cards",
+            "projectReviewedCards": "Treat all reviewed cards as mature",
+            "knownDeckWords": "Anki known words",
             "ankiNeedsToBeRunning": "Anki needs to be running to load statistics.",
             "noDeckBreakdown": "No matching Anki cards were found for this media.",
             "info": {
-                "ankiStatistics": "How your Anki cards match up with the words in this media."
+                "ankiStatistics": "How your Anki cards match up with the words in this media.",
+                "projectedCards": "Preview your stats by treating past cards or new cards (in the order they will be introduced) as Mature."
             }
         },
         "waniKani": {
             "waniKaniStatistics": "WaniKani statistics",
+            "projectLevel": "WaniKani level",
+            "projectedWords": "WaniKani known words",
+            "projectedLevel": "Level {{level}}",
+            "currentKnowledge": "Current WaniKani",
             "waniKaniNeedsToBeAvailable": "WaniKani statistics could not be loaded.",
             "noWaniKaniBreakdown": "No matching WaniKani vocabulary was found for this media.",
             "info": {
-                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media."
+                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media.",
+                "projectedLevel": "Preview your stats by treating all words at or below a level as Mature."
             }
         },
         "info": {
             "comprehension": "How many unique words are known, weighted by status and occurrences.",
-            "globalKnownWords": "How many words are known including locally stored words and Anki.",
+            "globalKnownWords": "How many words are known from locally stored words and external sources.",
             "wordDistribution": "How unique words are distributed across status and frequency.",
             "frequency": "Frequency: The rank-based frequency from your frequency dictionaries.",
             "occurrences": "Occurrences: The total number of times a word appears.",
             "sentenceStatistics": "How easily this content can be mined.",
-            "projectedRewatch": "Assumes all i+1 uncollected sentences were mined from the previous watch."
+            "projectedRewatch": "Assumes all i+1 uncollected sentences were mined from the previous watch and promotes all word status up one level each rewatch."
         }
     },
     "subtitlePlayer": {
@@ -704,8 +740,12 @@
         "jimakuApiKey": "Jimaku API key",
         "jimakuApiKeyAutosaveHint": "Saved automatically. Get an API key <0>here</0>.",
         "entries": "Search results",
+        "recentEntries": "Recent",
         "noEntries": "No search results",
         "availableFiles": "Files",
-        "noFiles": "No files"
+        "noFiles": "No files",
+        "searchCategory": "Search category",
+        "categoryAnime": "Anime",
+        "categoryDrama": "Drama"
     }
 }

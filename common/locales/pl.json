@@ -34,7 +34,8 @@
         "revert": "Revert",
         "userGuide": "User guide",
         "search": "Search",
-        "reload": "Reload"
+        "reload": "Reload",
+        "findPlaceholder": "Search by text or /regex/"
     },
     "about": {
         "title": "About asbplayer",
@@ -91,12 +92,17 @@
         "tagList": "Lista ciągów znaków oddzielonych przecinkami",
         "title": "Eksport Anki",
         "updateLastCard": "Zaktualizuj ostatnią kartę",
+        "updateSelectedCards": "Update selected cards ({{count}})",
         "url": "URL",
         "word": "Słowo",
         "zoomIn": "Przybliż",
         "zoomOut": "Oddal",
         "imagePreview": "Click to preview/edit",
         "quickSelectFtue": "{{shortcut}} selects the last-used action."
+    },
+    "cardSelectUi": {
+        "title": "Select cards to update",
+        "noResults": "No cards found."
     },
     "bar": {
         "donate": "Wesprzyj",
@@ -203,7 +209,8 @@
         "subtitleFileNotOpen": "Plik napisów {{fileName}} nie jest otwarty.",
         "unknownExtension": "Nie można rozpoznać rozszerzenia {{fileName}}",
         "unsupportedExtension": "Niewspierane rozszerzenie {{extension}}",
-        "videoPlayerDragAndDropNotAllowed": "Odtwarzacz wideo nie może przyjąć upuszczonych plików. Zamiast tego upuść poza ramką wideo."
+        "videoPlayerDragAndDropNotAllowed": "Odtwarzacz wideo nie może przyjąć upuszczonych plików. Zamiast tego upuść poza ramką wideo.",
+        "restoreSessionFailed": "Nie udało się przywrócić ostatniej sesji. Pliki mogły zostać przeniesione lub usunięte."
     },
     "extension": {
         "settings": {
@@ -327,7 +334,8 @@
         "extensionUpdateAvailable": "Dostępna jest <1>aktualizacja</1> rozszerzenia.",
         "noSubtitles": "Brak napisów",
         "videoElementsDetected": "Załaduj napisy, aby rozpocząć korzystanie z asbplayera.",
-        "noVideoElementsDetected": "Nie wykryto żadnego wideo."
+        "noVideoElementsDetected": "Nie wykryto żadnego wideo.",
+        "restoreLastSession": "Przywróć ostatnią sesję"
     },
     "activeTabPermissionRequest": {
         "title": "Aktywuj nagrywanie audio",
@@ -353,6 +361,7 @@
         "alwaysPlayOnSubtitleRepeat": "Zawsze kontynuuj odtwarzanie po uruchomieniu 'Przewiń do początku obecnych/poprzednich napisów'",
         "anki": "Anki",
         "ankiConnectUrl": "URL Anki Connect",
+        "ankiConnectApiKey": "Anki Connect API Key",
         "audioField": "Pole na audio",
         "audioPaddingEnd": "Padding audio z końca",
         "audioPaddingStart": "Padding audio z początku",
@@ -428,6 +437,8 @@
         "subtitleAlignment": "Wyrównanie napisów",
         "subtitleAlignmentBottom": "Dół",
         "subtitleAlignmentTop": "Góra",
+        "subtitleAboveThumbnail": "Subtitle above thumbnail",
+        "thumbnailPreview": "Show preview thumbnails",
         "subtitleBlur": "Rozmycie napisów",
         "subtitleTrack": "Subtitle Track",
         "allSubtitleTracks": "All",
@@ -492,6 +503,7 @@
         "dictionaryTokenMatchStrategyLemmaOrExactFormCollected": "Lemma or exact form collected",
         "dictionaryTokenMatchStrategyLemmaFormCollected": "Lemma form collected",
         "dictionaryTokenMatchStrategyExactFormCollected": "Exact form collected",
+        "dictionaryMatchAcrossScripts": "Match across language scripts",
         "dictionaryTokenMatchStrategyPriority": "Card choice priority",
         "dictionaryTokenMatchStrategyPriorityExact": "Field contains exact form",
         "dictionaryTokenMatchStrategyPriorityLemma": "Field contains lemma",
@@ -511,6 +523,8 @@
         "dictionaryTokenReadingAnnotationUnknownOrBelow": "Unknown or below",
         "dictionaryTokenReadingAnnotationNever": "Never",
         "dictionaryDisplayIgnoredTokenReadings": "Display readings for ignored words",
+        "dictionaryTokenPitchAccentAnnotation": "Display pitch accent (Japanese)",
+        "dictionaryTokenPitchAccentAnnotationUnderlineOverlineStyle": "The \"{{style}}\" style may get mistaken for pitch accent markings, enabling \"{{pitchAccentOnHover}}\" is recommended.",
         "dictionaryTokenFrequencyAnnotation": "Display word frequency",
         "dictionaryTokenFrequencyAnnotationAlways": "Always",
         "dictionaryTokenFrequencyAnnotationUncollectedOnly": "Uncollected only",
@@ -526,6 +540,7 @@
         "dictionaryAnkiTreatSuspendedNormal": "Normal",
         "dictionaryWaniKaniSection": "WaniKani",
         "dictionaryWaniKaniApiToken": "WaniKani API token",
+        "dictionaryWaniKaniApiTokenHelperText": "Instructions to get an API token are <0>here</0>.",
         "dictionaryTokenStyling": "Word color style",
         "dictionaryTokenStylingText": "Text",
         "dictionaryTokenStylingBackground": "Background",
@@ -534,6 +549,15 @@
         "dictionaryTokenStylingOutline": "Outline",
         "dictionaryTokenStylingOutlineHelperText": "You may need to set Subtitle Outline Thickness in Subtitle Appearance to 0 for the best results.",
         "dictionaryTokenStylingThickness": "Thickness",
+        "dictionaryTokenAnnotationTargetVideo": "Video",
+        "dictionaryTokenAnnotationTargetSubtitlePlayer": "Subtitle list",
+        "dictionaryTokenAnnotationHoverColor": "Only display word color on hover",
+        "dictionaryTokenAnnotationHoverReading": "Only display word reading on hover",
+        "dictionaryTokenAnnotationHoverFrequency": "Only display word frequency on hover",
+        "dictionaryTokenAnnotationHoverPitchAccent": "Only display pitch accent on hover",
+        "dictionaryTokenAnnotationReadingSize": "Word reading size",
+        "dictionaryTokenAnnotationFrequencySize": "Word frequency size",
+        "dictionaryTokenAnnotationPitchAccentSize": "Pitch accent size",
         "dictionaryColorizeFullyKnownTokens": "Colorize fully known words",
         "dictionaryTokenStatus5": "Mature",
         "dictionaryTokenStatusReading5": "Reading",
@@ -548,6 +572,7 @@
         "dictionaryTokenStatus0": "Uncollected",
         "dictionaryTokenStatusReading0": "Reading",
         "dictionaryTokenStateIgnored": "Ignored",
+        "dictionaryTokenStateIgnoredReading": "Reading",
         "dictionaryBuildAnkiStarted": "Querying Anki for modified cards",
         "dictionaryBuildWaniKaniStarted": "Syncing WaniKani vocabulary",
         "dictionaryTokenStatusAlpha": "Alpha",
@@ -639,6 +664,7 @@
         "occurrences": "Occurrences",
         "sentenceStatistics": "Sentence statistics",
         "currentWatch": "Current watch",
+        "projected": "Projected",
         "projectedRewatch": "Projected rewatch",
         "rewatchSelect": "Rewatch",
         "rewatchOption": "Rewatch #{{rewatch}}",
@@ -649,6 +675,7 @@
         "noMoreRewatches": "There will be no more mining after all i+1 sentences this session.",
         "totalSentences": "Total sentences",
         "knownSentences": "Known sentences",
+        "projectMature": "Treat upcoming material as mature",
         "anki": {
             "ankiStatistics": "Anki statistics",
             "dueByToday": "Due by today",
@@ -657,18 +684,27 @@
             "suspended": "Suspended",
             "deckBreakdown": "Deck breakdown",
             "modelBreakdown": "Model breakdown",
+            "newCardsCount": "{{count}} new cards",
+            "projectReviewedCards": "Treat all reviewed cards as mature",
+            "knownDeckWords": "Anki known words",
             "ankiNeedsToBeRunning": "Anki needs to be running to load statistics.",
             "noDeckBreakdown": "No matching Anki cards were found for this media.",
             "info": {
-                "ankiStatistics": "How your Anki cards match up with the words in this media."
+                "ankiStatistics": "How your Anki cards match up with the words in this media.",
+                "projectedCards": "Preview your stats by treating past cards or new cards (in the order they will be introduced) as Mature."
             }
         },
         "waniKani": {
             "waniKaniStatistics": "WaniKani statistics",
+            "projectLevel": "WaniKani level",
+            "projectedWords": "WaniKani known words",
+            "projectedLevel": "Level {{level}}",
+            "currentKnowledge": "Current WaniKani",
             "waniKaniNeedsToBeAvailable": "WaniKani statistics could not be loaded.",
             "noWaniKaniBreakdown": "No matching WaniKani vocabulary was found for this media.",
             "info": {
-                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media."
+                "waniKaniStatistics": "How your upcoming WaniKani reviews match up with the words in this media.",
+                "projectedLevel": "Preview your stats by treating all words at or below a level as Mature."
             }
         },
         "info": {
@@ -694,8 +730,12 @@
         "jimakuApiKey": "Jimaku API key",
         "jimakuApiKeyAutosaveHint": "Saved automatically. Get an API key <0>here</0>.",
         "entries": "Search results",
+        "recentEntries": "Recent",
         "noEntries": "No search results",
         "availableFiles": "Files",
-        "noFiles": "No files"
+        "noFiles": "No files",
+        "searchCategory": "Search category",
+        "categoryAnime": "Anime",
+        "categoryDrama": "Drama"
     }
 }

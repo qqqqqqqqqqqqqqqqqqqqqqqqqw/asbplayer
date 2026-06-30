@@ -87,6 +87,8 @@ const MiscSettingTab: React.FC<Props> = ({
         pauseOnHoverMode,
         webSocketClientEnabled,
         webSocketServerUrl,
+        subtitleAboveThumbnail,
+        thumbnailPreview,
     } = settings;
     const validRegex = useMemo(() => regexIsValid(subtitleRegexFilter), [subtitleRegexFilter]);
     const [webSocketConnectionSucceeded, setWebSocketConnectionSucceeded] = useState<boolean>();
@@ -312,7 +314,6 @@ const MiscSettingTab: React.FC<Props> = ({
                         </FormGroup>
                     </FormControl>
                 )}
-
                 <SettingsTextField
                     label={t('settings.subtitleRegexFilter')}
                     fullWidth

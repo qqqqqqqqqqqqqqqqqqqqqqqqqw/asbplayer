@@ -18,6 +18,7 @@ import {
     PostMinePlayback,
     SettingsUpdatedMessage,
     ShowAnkiUiMessage,
+    ShowCardSelectUiMessage,
     VideoToExtensionCommand,
 } from '@project/common';
 import { SettingsProvider } from '@project/common/settings';
@@ -127,6 +128,48 @@ export default class AnkiUiController {
         client.updateState(state);
     }
 
+    async showCardSelect(
+        context: Binding,
+        {
+            subtitle,
+            surroundingSubtitles,
+            image,
+            audio,
+            text,
+            definition,
+            word,
+            customFieldValues,
+        }: ShowCardSelectUiMessage
+    ) {
+        if (!this._settings) {
+            throw new Error('Unable to show card select UI because settings are missing.');
+        }
+
+        this._prepareShow(context);
+        const client = await this._client(context);
+        const state: AnkiUiInitialState = {
+            type: 'initial',
+            open: true,
+            cardSelectOpen: true,
+            canRerecord: true,
+            settings: this._settings,
+            source: sourceString(context.subtitleFileName(), subtitle.start),
+            url: context.url(subtitle.start, subtitle.end),
+            subtitle,
+            surroundingSubtitles,
+            image,
+            audio,
+            dialogRequestedTimestamp: context.video.currentTime * 1000,
+            text,
+            word,
+            definition,
+            customFieldValues,
+            inTutorial: this._inTutorial,
+            ...(await this._additionalUiState(context)),
+        };
+        client.updateState(state);
+    }
+
     async showAfterRerecord(context: Binding, uiState: AnkiUiSavedState) {
         if (!this._settings) {
             throw new Error('Unable to show Anki UI after rerecording because anki settings are undefined');
@@ -190,7 +233,7 @@ export default class AnkiUiController {
 
     private async _client(context: Binding) {
         this.frame.fetchOptions = {
-            videoSrc: context.video.src,
+            videoSrc: context.registeredVideoSrc,
             allowedFetchUrl: this._settings!.ankiConnectUrl,
         };
         this.frame.language = await context.settings.getSingle('language');
@@ -218,7 +261,7 @@ export default class AnkiUiController {
                                 command: 'open-asbplayer-settings',
                                 tutorial: this._inTutorial,
                             },
-                            src: context.video.src,
+                            src: context.registeredVideoSrc,
                         };
                         browser.runtime.sendMessage(openSettingsCommand);
                         return;
@@ -230,7 +273,7 @@ export default class AnkiUiController {
                                 command: 'copy-to-clipboard',
                                 dataUrl: copyToClipboardMessage.dataUrl,
                             },
-                            src: context.video.src,
+                            src: context.registeredVideoSrc,
                         };
                         browser.runtime.sendMessage(copyToClipboardCommand);
                         return;
@@ -243,7 +286,7 @@ export default class AnkiUiController {
                                 base64,
                                 extension,
                             },
-                            src: context.video.src,
+                            src: context.registeredVideoSrc,
                         };
                         const encodedBase64 = await browser.runtime.sendMessage(encodeMp3Command);
                         client.sendMessage({
@@ -259,7 +302,7 @@ export default class AnkiUiController {
                                 message: {
                                     command: 'settings-updated',
                                 },
-                                src: context.video.src,
+                                src: context.registeredVideoSrc,
                             };
                             browser.runtime.sendMessage(settingsUpdatedCommand);
                         });
@@ -275,7 +318,7 @@ export default class AnkiUiController {
                                 message: {
                                     command: 'settings-updated',
                                 },
-                                src: context.video.src,
+                                src: context.registeredVideoSrc,
                             };
                             browser.runtime.sendMessage(settingsUpdatedCommand);
                         });
@@ -284,7 +327,7 @@ export default class AnkiUiController {
                         const cardUpdatedDialogCommand: VideoToExtensionCommand<CardUpdatedDialogMessage> = {
                             sender: 'asbplayer-video',
                             message: message as CardUpdatedDialogMessage,
-                            src: context.video.src,
+                            src: context.registeredVideoSrc,
                         };
                         browser.runtime.sendMessage(cardUpdatedDialogCommand);
                         return;
@@ -292,7 +335,7 @@ export default class AnkiUiController {
                         const cardExportedDialogCommand: VideoToExtensionCommand<CardExportedDialogMessage> = {
                             sender: 'asbplayer-video',
                             message: message as CardExportedDialogMessage,
-                            src: context.video.src,
+                            src: context.registeredVideoSrc,
                         };
                         browser.runtime.sendMessage(cardExportedDialogCommand);
                         return;
