@@ -81,6 +81,85 @@
     line-height: 1;
 }
 
+/* The gloss annotation is a small label centered above the word. It's deliberately not a ruby: with
+   the reading ruby nested inside a ruby base that a wide gloss stretches, Chromium displaces the
+   reading, and Firefox overlaps the gloss onto the reading if the base is made an inline-block.
+   Instead the token is an inline-block that reserves the gloss row in-flow (as a hidden ::before
+   spacer, which reserves the width too), while the visible gloss floats at a fixed offset above the
+   word's own text box - font metrics are the same for every token, so glosses on the same line
+   always align no matter what the reading/pitch markup contains. */
+.asb-gloss {
+    display: inline-block;
+    text-align: center;
+    padding-top: 0.01em; /* No reading to clear when reading annotations are off; just a hair of room */
+}
+
+/* Invisible spacer that reserves the in-flow width/height of the gloss row */
+.asb-gloss::before {
+    content: attr(data-gloss);
+    display: block;
+    visibility: hidden;
+    font-size: var(--asb-gloss-size);
+    line-height: 1;
+}
+
+.asb-gloss-word {
+    display: block;
+    /* Repaint the token's underline/overline since text-decoration doesn't paint into inline-blocks */
+    text-decoration: var(--asb-token-text-decoration, none);
+}
+
+/* The positioned .asb-gloss-anchor paints as its own layer, above the line's ruby annotations,
+   which lets the word's text-shadow/underline blanket the reading and frequency where they touch.
+   Lift the annotations back on top, like they paint for tokens without a gloss. */
+.asb-gloss rt {
+    position: relative;
+    z-index: 1;
+}
+
+/* Two knobs for a glossed word that also has a reading:
+   --asb-gloss-visual is how far the gloss floats above the reading (the on-screen gap within a line).
+   --asb-gloss-reserve is how much space the token reserves in flow above itself. On a single line the
+   reserve only pushes the whole block up (invisible); on a wrapped line it becomes the gap between
+   lines, so it's kept smaller than the visual offset - the gloss then floats up into the natural
+   inter-line leading instead of pushing the lines apart. A reading's font box also carries built-in
+   padding beyond its glyphs, so both are well under the full --asb-reading-size. */
+.asb-gloss-reading-row {
+    --asb-gloss-visual: calc(var(--asb-reading-size) * 0.75);
+    --asb-gloss-reserve: calc(var(--asb-reading-size) * 0.25);
+    padding-top: var(--asb-gloss-reserve);
+}
+
+/* Reserve the reading row on glossed words without one so their stacks match their neighbors' */
+.asb-gloss-reading-row .asb-gloss-word-no-reading {
+    padding-top: var(--asb-gloss-reserve);
+}
+
+.asb-gloss-anchor {
+    position: relative; /* Anchor the floating gloss to the word's text box */
+}
+
+.asb-gloss-float {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.01em); /* em = the word's font size (inherited), not the gloss size */
+    transform: translateX(-50%);
+    display: flex;
+    pointer-events: none;
+}
+
+.asb-gloss-reading-row .asb-gloss-float {
+    bottom: calc(100% + var(--asb-gloss-visual)); /* Float above the reading row */
+}
+
+/* The visible gloss; being a pseudo-element it stays out of text selection */
+.asb-gloss-float::before {
+    content: attr(data-gloss);
+    font-size: var(--asb-gloss-size);
+    line-height: 1;
+    white-space: nowrap;
+}
+
 .asbplayer-subtitles-blurred {
     filter: blur(10px);
 }

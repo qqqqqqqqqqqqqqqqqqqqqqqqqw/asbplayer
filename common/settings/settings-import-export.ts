@@ -155,8 +155,13 @@ const dictionaryTrackSchema = {
                             properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
                             required: ['onHoverEnabled', 'size'],
                         },
+                        gloss: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
                     },
-                    required: ['color', 'reading', 'frequency', 'pitchAccent'],
+                    required: ['color', 'reading', 'frequency', 'pitchAccent', 'gloss'],
                 },
                 subtitlePlayer: {
                     type: 'object',
@@ -181,8 +186,13 @@ const dictionaryTrackSchema = {
                             properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
                             required: ['onHoverEnabled', 'size'],
                         },
+                        gloss: {
+                            type: 'object',
+                            properties: { onHoverEnabled: { type: 'boolean' }, size: { type: 'number' } },
+                            required: ['onHoverEnabled', 'size'],
+                        },
                     },
-                    required: ['color', 'reading', 'frequency', 'pitchAccent'],
+                    required: ['color', 'reading', 'frequency', 'pitchAccent', 'gloss'],
                 },
                 onStatuses: {
                     type: 'array',
@@ -192,8 +202,9 @@ const dictionaryTrackSchema = {
                             reading: { type: 'boolean' },
                             frequency: { type: 'boolean' },
                             pitchAccent: { type: 'boolean' },
+                            gloss: { type: 'boolean' },
                         },
-                        required: ['reading', 'frequency', 'pitchAccent'],
+                        required: ['reading', 'frequency', 'pitchAccent', 'gloss'],
                     },
                 },
                 onStates: {
@@ -204,12 +215,16 @@ const dictionaryTrackSchema = {
                             reading: { type: 'boolean' },
                             frequency: { type: 'boolean' },
                             pitchAccent: { type: 'boolean' },
+                            gloss: { type: 'boolean' },
                         },
-                        required: ['reading', 'frequency', 'pitchAccent'],
+                        required: ['reading', 'frequency', 'pitchAccent', 'gloss'],
                     },
                 },
             },
             required: ['colorizeEnabled', 'video', 'subtitlePlayer', 'onStatuses', 'onStates'],
+        },
+        dictionaryGlossPreferredDictionary: {
+            type: 'string',
         },
     },
     required: [

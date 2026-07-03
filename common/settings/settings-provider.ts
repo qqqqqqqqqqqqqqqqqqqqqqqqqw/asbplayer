@@ -49,22 +49,24 @@ function makeDefaultDictionaryTokenAnnotationConfigs() {
             reading: { onHoverEnabled: false, size: 0.5 },
             frequency: { onHoverEnabled: false, size: 0.3 },
             pitchAccent: { onHoverEnabled: true, size: 0.1 },
+            gloss: { onHoverEnabled: false, size: 0.3 },
         },
         subtitlePlayer: {
             color: { onHoverEnabled: false, size: 1 },
             reading: { onHoverEnabled: false, size: 0.5 },
             frequency: { onHoverEnabled: false, size: 0.5 },
             pitchAccent: { onHoverEnabled: true, size: 0.1 },
+            gloss: { onHoverEnabled: false, size: 0.5 },
         },
         onStatuses: [
-            { reading: false, frequency: false, pitchAccent: false },
-            { reading: false, frequency: false, pitchAccent: false },
-            { reading: false, frequency: false, pitchAccent: false },
-            { reading: false, frequency: false, pitchAccent: false },
-            { reading: false, frequency: false, pitchAccent: false },
-            { reading: false, frequency: false, pitchAccent: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
+            { reading: false, frequency: false, pitchAccent: false, gloss: false },
         ],
-        onStates: [{ reading: false, frequency: false, pitchAccent: false }],
+        onStates: [{ reading: false, frequency: false, pitchAccent: false, gloss: false }],
     };
 }
 
@@ -102,6 +104,7 @@ const defaultDictionaryTrackSettings: DictionaryTrack = {
         { display: false, color: '#FFFFFF', alpha: 'FF' },
     ],
     dictionaryTokenAnnotationConfig: makeDefaultDictionaryTokenAnnotationConfigs(),
+    dictionaryGlossPreferredDictionary: '',
 };
 
 export const defaultSettings: AsbplayerSettings = {
@@ -581,6 +584,7 @@ const ensureDictionaryTracksConsistency = ({ dictionaryTracks }: Partial<Asbplay
                 reading: false,
                 frequency: false,
                 pitchAccent: false,
+                gloss: false,
             });
         }
         while (dt.dictionaryTokenAnnotationConfig.onStatuses.length > NUM_TOKEN_STATUSES) {
@@ -591,13 +595,32 @@ const ensureDictionaryTracksConsistency = ({ dictionaryTracks }: Partial<Asbplay
                 reading: false,
                 frequency: false,
                 pitchAccent: false,
+                gloss: false,
             });
         }
         while (dt.dictionaryTokenAnnotationConfig.onStates.length > NUM_TOKEN_STATES) {
             dt.dictionaryTokenAnnotationConfig.onStates.pop();
         }
 
+        // Backfill newly-added annotation trigger keys onto pre-existing entries
+        for (const options of [
+            ...dt.dictionaryTokenAnnotationConfig.onStatuses,
+            ...dt.dictionaryTokenAnnotationConfig.onStates,
+        ]) {
+            if ((options as any).gloss === undefined) (options as any).gloss = false;
+        }
+        for (const target of ['video', 'subtitlePlayer'] as const) {
+            if (!dt.dictionaryTokenAnnotationConfig[target].gloss) {
+                (dt.dictionaryTokenAnnotationConfig[target] as any).gloss = {
+                    ...defaultTrack.dictionaryTokenAnnotationConfig[target].gloss,
+                };
+            }
+        }
+
         // Default for new settings
+        if (dt.dictionaryGlossPreferredDictionary === undefined) {
+            (dt as any).dictionaryGlossPreferredDictionary = defaultTrack.dictionaryGlossPreferredDictionary;
+        }
         if (!dt.dictionaryYomitanParser) (dt as any).dictionaryYomitanParser = defaultTrack.dictionaryYomitanParser;
         if (dt.dictionaryAutoGenerateStatistics === undefined) {
             (dt as any).dictionaryAutoGenerateStatistics = defaultTrack.dictionaryAutoGenerateStatistics;

@@ -1,5 +1,5 @@
 import { Fetcher, HttpFetcher, Progress } from '@project/common';
-import { DictionaryTrack } from '@project/common/settings';
+import { DictionaryTrack, getEnabledAnnotations } from '@project/common/settings';
 import {
     AsyncSemaphore,
     fromBatches,
@@ -111,6 +111,28 @@ interface TermDictionaryEntry {
     headwords: TermHeadword[];
     frequencies: TermFrequency[];
     pronunciations: TermPronunciation[];
+    definitions?: TermDefinition[];
+}
+
+interface TermDefinition {
+    index: number;
+    headwordIndices: number[];
+    dictionary: string;
+    dictionaryIndex: number;
+    dictionaryAlias: string;
+    isPrimary?: boolean;
+    entries: TermDefinitionEntry[];
+}
+
+// A definition entry is either a plain-text/HTML string or Yomitan "structured content" (a nested tree).
+type TermDefinitionEntry = string | TermDefinitionStructuredContent;
+
+interface TermDefinitionStructuredContent {
+    type?: string; // Top-level wrapper: 'structured-content' | 'text' | 'image'
+    text?: string; // Present when type === 'text'
+    tag?: string; // HTML-like tag for structured-content nodes: 'ul' | 'li' | 'a' | 'span' | ...
+    data?: { [key: string]: string };
+    content?: TermDefinitionEntry | TermDefinitionEntry[];
 }
 
 export class Yomitan {
@@ -121,6 +143,8 @@ export class Yomitan {
     private readonly lemmatizeCache: Map<string, string[]>;
     private readonly frequencyCache: Map<string, number | null>;
     private readonly pitchAccentCache: Map<string, PitchAccentPosition | null>;
+    private readonly glossCache: Map<string, string | null>;
+    private readonly glossEnabled: boolean; // Skip gloss extraction entirely when no track shows glosses
     private readonly frequencyModeInferenceData: Map<string, Map<string, number>>;
     private readonly inferredFrequencyModes: Map<string, FrequencyMode>;
     private readonly lemmaTokenFallback: boolean; // Allow collecting ungrouped segments (no dictionary entry)
@@ -148,6 +172,8 @@ export class Yomitan {
         this.lemmatizeCache = new Map();
         this.frequencyCache = new Map();
         this.pitchAccentCache = new Map();
+        this.glossCache = new Map();
+        this.glossEnabled = getEnabledAnnotations(dictionaryTrack).gloss;
         this.frequencyModeInferenceData = new Map();
         this.inferredFrequencyModes = new Map();
         this.lemmaTokenFallback = options?.lemmaTokenFallback ?? false;
@@ -186,11 +212,17 @@ export class Yomitan {
         return this.supportsTermEntriesBulk;
     }
 
+    // Glosses are only available via termEntries (not the tokenize API), so bulk support requires termEntries bulk.
+    getSupportsBulkGloss(): boolean {
+        return this.supportsTermEntriesBulk;
+    }
+
     resetCache() {
         this.tokenizeCache.clear();
         this.lemmatizeCache.clear();
         this.frequencyCache.clear();
         this.pitchAccentCache.clear();
+        this.glossCache.clear();
         this.frequencyModeInferenceData.clear();
         this.inferredFrequencyModes.clear();
         this.lastCancelledAt = Date.now();
@@ -536,6 +568,7 @@ export class Yomitan {
             this.lemmatizeCache.set(token, []);
             this.frequencyCache.set(token, null);
             this.pitchAccentCache.set(token, null);
+            this.glossCache.set(token, null);
             return [];
         }
         const now = Date.now();
@@ -551,6 +584,7 @@ export class Yomitan {
             const dictionaryEntries: TermDictionaryEntry[] = res.dictionaryEntries;
             if (!this.frequencyCache.has(token)) this.extractFrequency(token, dictionaryEntries);
             if (!this.pitchAccentCache.has(token)) this.extractPitchAccent(token, dictionaryEntries);
+            if (this.glossEnabled && !this.glossCache.has(token)) this.extractGloss(token, dictionaryEntries);
             return this.extractLemmas(
                 token,
                 dictionaryEntries.map((entry) => entry.headwords)
@@ -571,6 +605,7 @@ export class Yomitan {
             this.frequencyCache.set(token, null);
             this.pitchAccentCache.set(token, null);
             this.lemmatizeCache.set(token, []);
+            this.glossCache.set(token, null);
             return null;
         }
         if (this.tokensWereModified) {
@@ -594,6 +629,7 @@ export class Yomitan {
                     const dictionaryEntries: TermDictionaryEntry[] = res.dictionaryEntries;
                     this.extractFrequency(token, dictionaryEntries);
                     if (!this.pitchAccentCache.has(token)) this.extractPitchAccent(token, dictionaryEntries);
+                    if (this.glossEnabled && !this.glossCache.has(token)) this.extractGloss(token, dictionaryEntries);
                     if (!this.lemmatizeCache.has(token)) {
                         this.extractLemmas(
                             token,
@@ -626,6 +662,7 @@ export class Yomitan {
                     dictionaryEntries.map((entry) => entry.headwords)
                 );
             }
+            if (this.glossEnabled && !this.glossCache.has(token)) this.extractGloss(token, dictionaryEntries);
             return this.extractFrequency(token, dictionaryEntries);
         } finally {
             setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
@@ -673,6 +710,7 @@ export class Yomitan {
             this.pitchAccentCache.set(token, null);
             this.frequencyCache.set(token, null);
             this.lemmatizeCache.set(token, []);
+            this.glossCache.set(token, null);
             return null;
         }
         if (this.tokensWereModified) {
@@ -696,6 +734,7 @@ export class Yomitan {
                     const dictionaryEntries: TermDictionaryEntry[] = res.dictionaryEntries;
                     this.extractPitchAccent(token, dictionaryEntries);
                     if (!this.frequencyCache.has(token)) this.extractFrequency(token, dictionaryEntries);
+                    if (this.glossEnabled && !this.glossCache.has(token)) this.extractGloss(token, dictionaryEntries);
                     if (!this.lemmatizeCache.has(token)) {
                         this.extractLemmas(
                             token,
@@ -728,6 +767,7 @@ export class Yomitan {
                     dictionaryEntries.map((entry) => entry.headwords)
                 );
             }
+            if (this.glossEnabled && !this.glossCache.has(token)) this.extractGloss(token, dictionaryEntries);
             return this.extractPitchAccent(token, dictionaryEntries);
         } finally {
             setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
@@ -775,6 +815,107 @@ export class Yomitan {
         return selected;
     }
 
+    /**
+     * Get a clean gloss for a token using Yomitan's termEntries API.
+     * This function will return undefined immediately and asynchronously update the cache if tokensWereModified
+     * is provided and the token is not in the cache.
+     */
+    async gloss(token: string, yomitanUrl?: string): Promise<string | undefined | null> {
+        const cached = this.glossCache.get(token);
+        if (cached !== undefined) return cached;
+        if (!HAS_LETTER_REGEX.test(token)) {
+            this.glossCache.set(token, null);
+            return null;
+        }
+        if (this.tokensWereModified) {
+            void (async () => {
+                const now = Date.now();
+                const semaphoreId = await this.asyncSemaphore.acquire();
+                try {
+                    if (this.glossCache.has(token)) return;
+                    if (now < this.lastCancelledAt) {
+                        this.tokensWereModified!(token); // May need to reprocess with the new Yomitan instance
+                        return;
+                    }
+                    const res: TermEntriesResult = await this._executeAction(
+                        'termEntries',
+                        { term: token },
+                        yomitanUrl
+                    );
+                    if (!Array.isArray(res?.dictionaryEntries)) {
+                        throw new Error(`Unexpected Yomitan termEntries response: ${JSON.stringify(res)}`);
+                    }
+                    this.extractGloss(token, res.dictionaryEntries);
+                    this.tokensWereModified!(token);
+                } finally {
+                    setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
+                }
+            })();
+            return; // undefined means the caller should call again later
+        }
+
+        const now = Date.now();
+        const semaphoreId = await this.asyncSemaphore.acquire();
+        try {
+            const def = this.glossCache.get(token);
+            if (def !== undefined) return def;
+            if (now < this.lastCancelledAt) return;
+            const res: TermEntriesResult = await this._executeAction('termEntries', { term: token }, yomitanUrl);
+            if (!Array.isArray(res?.dictionaryEntries)) {
+                throw new Error(`Unexpected Yomitan termEntries response: ${JSON.stringify(res)}`);
+            }
+            return this.extractGloss(token, res.dictionaryEntries);
+        } finally {
+            setTimeout(() => this.asyncSemaphore.release(semaphoreId), TERM_ENTRIES_DEBOUNCE_MS);
+        }
+    }
+
+    /**
+     * Extract a clean gloss for a token using Yomitan's termEntries API.
+     * Headwords are matched exactly (as with frequency/pitch accent). Each candidate definition is run
+     * through the per-dictionary extractor registry (see glossExtractors): a dictionary must have an
+     * explicit extractor or it is ignored (we show nothing rather than guess at arbitrary markup). If a
+     * preferred dictionary is configured, its matching definitions are tried first; otherwise Yomitan's
+     * returned order (the user's dictionary priority) is used. Returns plain text, or null if none found.
+     */
+    private extractGloss(token: string, entries: TermDictionaryEntry[]): string | null {
+        const preferred = this.dt.dictionaryGlossPreferredDictionary.trim().toLowerCase();
+        const candidates: TermDefinition[] = [];
+        for (const entry of entries) {
+            const matchingHeadwordIndices = new Set<number>();
+            for (const [i, headword] of entry.headwords.entries()) {
+                for (const source of headword.sources) {
+                    if (source.originalText !== token) continue;
+                    if (!source.isPrimary) continue;
+                    if (source.matchType !== 'exact') continue;
+                    matchingHeadwordIndices.add(headword.headwordIndex ?? i);
+                    break;
+                }
+            }
+            if (!matchingHeadwordIndices.size || !entry.definitions) continue;
+            for (const def of entry.definitions) {
+                if (!def.headwordIndices.some((i) => matchingHeadwordIndices.has(i))) continue;
+                candidates.push(def);
+            }
+        }
+        const matchesPreferred = (d: TermDefinition) =>
+            d.dictionary.toLowerCase() === preferred || d.dictionaryAlias.toLowerCase() === preferred;
+        const ordered = preferred
+            ? [...candidates.filter(matchesPreferred), ...candidates.filter((d) => !matchesPreferred(d))]
+            : candidates;
+        for (const def of ordered) {
+            const extractor = glossExtractors.find((e) => e.match(def.dictionary));
+            if (!extractor) continue; // Unsupported dictionary — skip rather than guess at its markup
+            const text = extractor.extract(def.entries);
+            if (text && HAS_LETTER_REGEX.test(text)) {
+                this.glossCache.set(token, text);
+                return text;
+            }
+        }
+        this.glossCache.set(token, null);
+        return null;
+    }
+
     async termEntriesBulk(
         tokens: string[],
         triggerTokensWereModified: boolean,
@@ -788,7 +929,8 @@ export class Yomitan {
                 if (
                     this.lemmatizeCache.has(token) &&
                     this.frequencyCache.has(token) &&
-                    this.pitchAccentCache.has(token)
+                    this.pitchAccentCache.has(token) &&
+                    (!this.glossEnabled || this.glossCache.has(token))
                 ) {
                     continue;
                 }
@@ -796,6 +938,7 @@ export class Yomitan {
                     this.lemmatizeCache.set(token, []);
                     this.frequencyCache.set(token, null);
                     this.pitchAccentCache.set(token, null);
+                    this.glossCache.set(token, null);
                     if (triggerTokensWereModified) this.tokensWereModified?.(token);
                     continue;
                 }
@@ -811,7 +954,8 @@ export class Yomitan {
                     if (
                         this.lemmatizeCache.has(token) &&
                         this.frequencyCache.has(token) &&
-                        this.pitchAccentCache.has(token)
+                        this.pitchAccentCache.has(token) &&
+                        (!this.glossEnabled || this.glossCache.has(token))
                     ) {
                         tokensToFetch.delete(token);
                     }
@@ -848,6 +992,10 @@ export class Yomitan {
                             }
                             if (!this.pitchAccentCache.has(token)) {
                                 this.extractPitchAccent(token, entries);
+                                modified = true;
+                            }
+                            if (this.glossEnabled && !this.glossCache.has(token)) {
+                                this.extractGloss(token, entries);
                                 modified = true;
                             }
                             if (modified && triggerTokensWereModified) this.tokensWereModified?.(token);
@@ -1029,4 +1177,103 @@ export class Yomitan {
         if (!json || json === '{}') throw new Error(`Yomitan API error for ${path}: ${json}`);
         return json;
     }
+}
+
+// Cap so a gloss stays readable as a small ruby annotation above the word.
+const GLOSS_MAX_LENGTH = 40;
+
+/**
+ * A per-dictionary gloss extractor. Because every dictionary lays out its structured content
+ * differently (there is no shared schema), each supported dictionary gets its own extractor that knows
+ * exactly where that dictionary keeps the gloss — so we only ever surface a clean gloss, never tags,
+ * example sentences, or notes. To support another dictionary, add an entry to `glossExtractors`.
+ */
+interface GlossExtractor {
+    // Match by name PREFIX: Yomitan appends a version/date stamp, e.g. "Jitendex.org [2026-02-05]".
+    match: (dictionaryName: string) => boolean;
+    extract: (entries: TermDefinitionEntry[]) => string | null;
+}
+
+const glossExtractors: GlossExtractor[] = [
+    // Jitendex and JMdict (Yomitan format) both wrap each sense's glosses in
+    // <ul data-content="glossary"><li>…</li></ul>. JMdict emits one sense per definition entry.
+    {
+        match: (name) => name.startsWith('Jitendex') || name.startsWith('JMdict'),
+        extract: extractGlossaryContentGloss,
+    },
+];
+
+// Jitendex / JMdict: return only the first gloss of the first sense — the <li> items of the first
+// `data-content="glossary"` list are synonymous glosses of one meaning (e.g. "colour; color; hue; tint"),
+// so we show just the first for a compact label. Iterating definition entries in order yields sense 1 first.
+// Parenthetical qualifiers (e.g. "(esp. of a business)", "(colloquial)") are stripped since they're
+// too verbose for a compact label; a gloss left empty by stripping is skipped in favor of the next one.
+function extractGlossaryContentGloss(entries: TermDefinitionEntry[]): string | null {
+    for (const entry of entries) {
+        const glossary = findStructuredContentNode(entry, (n) => n.data?.content === 'glossary');
+        if (!glossary) continue;
+        const glosses = directListItemTexts(glossary)
+            .map(stripParentheticals)
+            .filter((gloss) => gloss.length > 0);
+        if (glosses.length) return normalizeGlossText(glosses[0]);
+    }
+    return null;
+}
+
+// Remove parenthesized asides, e.g. "to run (a business)" -> "to run".
+function stripParentheticals(text: string): string {
+    return text
+        .replace(/\([^()]*\)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Depth-first search for the first structured-content node matching a predicate.
+function findStructuredContentNode(
+    entry: TermDefinitionEntry | TermDefinitionEntry[] | undefined | null,
+    predicate: (node: TermDefinitionStructuredContent) => boolean
+): TermDefinitionStructuredContent | null {
+    if (entry === undefined || entry === null || typeof entry === 'string') return null;
+    if (Array.isArray(entry)) {
+        for (const item of entry) {
+            const found = findStructuredContentNode(item, predicate);
+            if (found) return found;
+        }
+        return null;
+    }
+    if (predicate(entry)) return entry;
+    return findStructuredContentNode(entry.content, predicate);
+}
+
+// Text of each direct <li> child of a list node (the individual glosses of one sense).
+function directListItemTexts(node: TermDefinitionStructuredContent): string[] {
+    const items = Array.isArray(node.content) ? node.content : node.content != null ? [node.content] : [];
+    const texts: string[] = [];
+    for (const item of items) {
+        if (typeof item === 'object' && item !== null && !Array.isArray(item) && item.tag === 'li') {
+            const text = structuredContentText(item).trim();
+            if (text) texts.push(text);
+        }
+    }
+    return texts;
+}
+
+// Collect all text within a structured-content node/subtree. Used on a node a dictionary extractor has
+// already navigated to (e.g. a single gloss <li>), so it does not need to skip non-gloss content.
+function structuredContentText(entry: TermDefinitionEntry | TermDefinitionEntry[] | undefined | null): string {
+    if (entry === undefined || entry === null) return '';
+    if (typeof entry === 'string') return entry;
+    if (Array.isArray(entry)) return entry.map(structuredContentText).join('');
+    if (entry.type === 'text') return entry.text ?? '';
+    if (entry.type === 'image' || entry.tag === 'img') return '';
+    return structuredContentText(entry.content);
+}
+
+// Collapse whitespace and truncate (on a word boundary when possible) so the gloss fits above a word.
+function normalizeGlossText(text: string): string {
+    let result = text.replace(/\s+/g, ' ').trim();
+    if (result.length > GLOSS_MAX_LENGTH) {
+        result = result.substring(0, GLOSS_MAX_LENGTH).replace(/\s+\S*$/, '') + '…';
+    }
+    return result;
 }

@@ -223,6 +223,7 @@ export interface TokenAnnotationTriggerOptions {
     reading: boolean;
     frequency: boolean;
     pitchAccent: boolean;
+    gloss: boolean;
 }
 
 export interface TokenAnnotationConfigOptions {
@@ -235,6 +236,7 @@ export interface TokenAnnotationConfig {
     reading: TokenAnnotationConfigOptions;
     frequency: TokenAnnotationConfigOptions;
     pitchAccent: TokenAnnotationConfigOptions;
+    gloss: TokenAnnotationConfigOptions;
 }
 
 export type TokenAnnotationStyleValues = Record<string, string>;
@@ -244,6 +246,7 @@ export function tokenAnnotationStyleValues(config: TokenAnnotationConfig | undef
         '--asb-reading-size': `${config?.reading.size ?? 0.5}em`,
         '--asb-frequency-size': `${config?.frequency.size ?? 0.3}em`,
         '--asb-pitch-accent-size': `${config?.pitchAccent.size ?? 0.1}em`,
+        '--asb-gloss-size': `${config?.gloss.size ?? 0.3}em`,
     };
 }
 
@@ -266,6 +269,7 @@ const tokenAnnotationTriggerOptionsComparators: {
     reading: (a, b) => a === b,
     frequency: (a, b) => a === b,
     pitchAccent: (a, b) => a === b,
+    gloss: (a, b) => a === b,
 };
 
 export function compareTokenAnnotationTriggerOptionsField<K extends keyof TokenAnnotationTriggerOptions>(
@@ -325,6 +329,7 @@ const tokenAnnotationConfigComparators: {
     reading: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
     frequency: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
     pitchAccent: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
+    gloss: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
 };
 
 export function compareTokenAnnotationConfigField<K extends keyof TokenAnnotationConfig>(
@@ -428,6 +433,7 @@ export interface EnabledAnnotations {
     reading: boolean;
     frequency: boolean;
     pitchAccent: boolean;
+    gloss: boolean;
 }
 
 export function getEnabledAnnotationsForHover(
@@ -491,6 +497,9 @@ export interface DictionaryTrack {
     readonly dictionaryTokenStatusColors: string[];
     readonly dictionaryTokenStatusConfig: TokenStatusConfig[]; // Indexed by TokenStatus (if adding config for states, use a separate array indexed by TokenState)
     readonly dictionaryTokenAnnotationConfig: TokenAnnotationConfigs;
+    // Empty means "use the first available gloss" (respecting the user's Yomitan dictionary priority);
+    // otherwise the name/alias of the Yomitan dictionary to prefer for gloss annotations.
+    readonly dictionaryGlossPreferredDictionary: string;
 }
 
 export interface DictionarySettings {
@@ -526,6 +535,7 @@ const dictionaryTrackComparators: {
     dictionaryTokenStatusColors: (a, b) => arrayEquals(a, b),
     dictionaryTokenStatusConfig: (a, b) => arrayEquals(a, b, areTokenStatusConfigsEqual),
     dictionaryTokenAnnotationConfig: (a, b) => areTokenAnnotationConfigsEqual(a, b),
+    dictionaryGlossPreferredDictionary: (a, b) => a === b,
 };
 
 export function compareDTField<K extends keyof DictionaryTrack>(

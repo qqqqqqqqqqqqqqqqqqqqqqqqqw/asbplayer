@@ -84,6 +84,12 @@ const ASB_TOKEN_CLASS = 'asb-token';
 const ASB_TOKEN_HIGHLIGHT_CLASS = 'asb-token-highlight';
 const ASB_READING_CLASS = 'asb-reading';
 const ASB_FREQUENCY_CLASS = 'asb-frequency';
+const ASB_GLOSS_CLASS = 'asb-gloss';
+const ASB_GLOSS_READING_ROW_CLASS = 'asb-gloss-reading-row';
+const ASB_GLOSS_WORD_CLASS = 'asb-gloss-word';
+const ASB_GLOSS_WORD_NO_READING_CLASS = 'asb-gloss-word-no-reading';
+const ASB_GLOSS_ANCHOR_CLASS = 'asb-gloss-anchor';
+const ASB_GLOSS_FLOAT_CLASS = 'asb-gloss-float';
 const ASB_PITCH_ACCENT_CLASS = 'asb-pitch-accent';
 const ASB_PITCH_ACCENT_MORA_CLASS = 'asb-pitch-accent-mora';
 const ASB_PITCH_ACCENT_MORA_HIGH_CLASS = 'asb-pitch-accent-mora-high';
@@ -1623,6 +1629,7 @@ export class SubtitleAnnotations extends SubtitleCollection<IndexedSubtitleModel
                         if (token.status === null) this.erroredCache.add(index);
                         await this._updateFrequency(token, trimmedToken, index, ts);
                         await this._updatePitchAccent(token, trimmedToken, index, ts);
+                        await this._updateGloss(token, trimmedToken, index, ts);
                         if (this.shouldCancelBuild) return;
 
                         reconstructedTextParts.push(tokenText);
@@ -1726,6 +1733,7 @@ export class SubtitleAnnotations extends SubtitleCollection<IndexedSubtitleModel
                 if (token.status === null) this.erroredCache.add(index);
                 await this._updateFrequency(token, trimmedToken, index, ts);
                 await this._updatePitchAccent(token, trimmedToken, index, ts);
+                await this._updateGloss(token, trimmedToken, index, ts);
                 if (this.shouldCancelBuild) return;
             }
 
@@ -1752,6 +1760,16 @@ export class SubtitleAnnotations extends SubtitleCollection<IndexedSubtitleModel
         if (token.status == null || !shouldUseAnnotation('pitchAccent', token.status, token.states, ts.dt)) return;
         if ((this.initialized && !this.generateStatisticsRequested) || ts.yt.getSupportsBulkPitchAccent()) {
             token.pitchAccent = await ts.yt.pitchAccent(trimmedToken);
+        } else {
+            this.refreshCache.add(index);
+        }
+    }
+
+    private async _updateGloss(token: Token, trimmedToken: string, index: number, ts: TrackState): Promise<void> {
+        if (!ts.yt) throw new Error('Yomitan uninitialized - cannot update token gloss');
+        if (token.status == null || !shouldUseAnnotation('gloss', token.status, token.states, ts.dt)) return;
+        if ((this.initialized && !this.generateStatisticsRequested) || ts.yt.getSupportsBulkGloss()) {
+            token.gloss = await ts.yt.gloss(trimmedToken);
         } else {
             this.refreshCache.add(index);
         }
@@ -2142,7 +2160,11 @@ const applyTokenStyle = (fullText: string, token: Token, prevPitch: PitchAccentC
         clearPitchAccentContext(prevPitch);
         return rawTokenText;
     }
-    const tokenText = applyFrequencyAnnotation(applyReadingAnnotation(rawTokenText, token, prevPitch, ss), token, ss);
+    const tokenText = applyGlossAnnotation(
+        applyFrequencyAnnotation(applyReadingAnnotation(rawTokenText, token, prevPitch, ss), token, ss),
+        token,
+        ss
+    );
     if (token.status === null) return `<span ${ERROR_STYLE}>${tokenText}</span>`;
     if (token.status === undefined && dictionaryTrackEnabled(ss.dt))
         return `<span ${LOGIC_ERROR_STYLE}>${tokenText}</span>`; // External tokens may flash this on initial load
@@ -2169,7 +2191,9 @@ const applyTokenStyle = (fullText: string, token: Token, prevPitch: PitchAccentC
             return `${s} style="background-color: ${c};">${tokenText}</span>`;
         case TokenStyling.UNDERLINE:
         case TokenStyling.OVERLINE:
-            return `${s} style="text-decoration: ${ss.dt.dictionaryTokenStyling} ${c} ${t}px;">${tokenText}</span>`;
+            // Also exposed as a variable so a gloss annotation's word row can repaint it, since
+            // text-decoration doesn't paint into the gloss annotation's inline-block
+            return `${s} style="--asb-token-text-decoration: ${ss.dt.dictionaryTokenStyling} ${c} ${t}px; text-decoration: var(--asb-token-text-decoration);">${tokenText}</span>`;
         case TokenStyling.OUTLINE:
             return `${s} style="-webkit-text-stroke: ${t}px ${c};">${tokenText}</span>`;
         default:
@@ -2319,4 +2343,37 @@ const applyFrequencyAnnotation = (tokenText: string, token: Token, ss: TokenStyl
     if (token.frequency == null) return tokenText;
     if (token.status == null || !shouldUseAnnotation('frequency', token.status, token.states, ss.dt)) return tokenText;
     return `<ruby class="${ASB_FREQUENCY_CLASS}">${tokenText}<rt>${token.frequency}</rt></ruby>`;
+};
+
+const HTML_ESCAPES: { [character: string]: string } = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+};
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+
+const applyGlossAnnotation = (tokenText: string, token: Token, ss: TokenStyleState) => {
+    if (!ss.enabledAnnotations.gloss) return tokenText;
+    if (token.gloss == null) return tokenText;
+    if (token.status == null || !shouldUseAnnotation('gloss', token.status, token.states, ss.dt)) return tokenText;
+    // Not a ruby annotation: with the reading ruby nested inside a ruby base that a wide gloss
+    // stretches, Chromium displaces the reading, and Firefox overlaps the gloss onto the reading if
+    // the base is made an inline-block. Instead, an inline-block reserves the gloss row in-flow
+    // (as a hidden ::before spacer on .asb-gloss reading data-gloss), while the visible gloss is a
+    // ::before on .asb-gloss-float, absolutely positioned at a fixed offset above the word's own
+    // text box - font metrics are the same for every token, so glosses on the same line always
+    // align no matter what the reading/pitch markup contains. The gloss text is arbitrary so it
+    // must be HTML-escaped for the attributes.
+    const gloss = escapeHtml(token.gloss);
+    // Lift the gloss above the reading row whenever readings are enabled - including on words
+    // without one (padded to match) - so glosses align across neighboring words
+    const glossClass = ss.enabledAnnotations.reading
+        ? `${ASB_GLOSS_CLASS} ${ASB_GLOSS_READING_ROW_CLASS}`
+        : ASB_GLOSS_CLASS;
+    const wordClass = tokenText.includes(`class="${ASB_READING_CLASS}"`)
+        ? ASB_GLOSS_WORD_CLASS
+        : `${ASB_GLOSS_WORD_CLASS} ${ASB_GLOSS_WORD_NO_READING_CLASS}`;
+    return `<span class="${glossClass}" data-gloss="${gloss}"><span class="${wordClass}"><span class="${ASB_GLOSS_ANCHOR_CLASS}"><span class="${ASB_GLOSS_FLOAT_CLASS}" data-gloss="${gloss}"></span>${tokenText}</span></span></span>`;
 };

@@ -642,7 +642,14 @@
         "webSocketInterface": "WebSocket interface",
         "yomitanHelperText": "Instructions to setup Yomitan API are <0>here<0>.",
         "seekableTracks": "Subtitle tracks affected by playback modes and keyboard shortcuts",
-        "autoCopyableTracks": "Subtitle tracks eligible for auto-copy"
+        "autoCopyableTracks": "Subtitle tracks eligible for auto-copy",
+        "dictionaryTokenGlossAnnotation": "Display word glosses",
+        "dictionaryGlossPreferredDictionary": "Preferred gloss dictionary (optional)",
+        "dictionaryGlossPreferredDictionaryPlaceholder": "First available dictionary",
+        "dictionaryGlossPreferredDictionaryHelperText": "Name or alias of the Yomitan dictionary to take glosses from. Leave blank to use the first available gloss (respecting your Yomitan dictionary priority).",
+        "dictionaryTokenAnnotationHoverGloss": "Only display word gloss on hover",
+        "dictionaryTokenAnnotationGlossSize": "Word gloss size",
+        "dictionaryTokenAnnotationGlossDemo": "meaning"
     },
     "statistics": {
         "title": "Statistics",

@@ -143,16 +143,19 @@ const tokenAnnotationHoverOptions: { annotation: TokenAnnotationHoverKey; labelK
     { annotation: 'reading', labelKey: 'settings.dictionaryTokenAnnotationHoverReading' },
     { annotation: 'frequency', labelKey: 'settings.dictionaryTokenAnnotationHoverFrequency' },
     { annotation: 'pitchAccent', labelKey: 'settings.dictionaryTokenAnnotationHoverPitchAccent' },
+    { annotation: 'gloss', labelKey: 'settings.dictionaryTokenAnnotationHoverGloss' },
 ];
 const tokenAnnotationSizeOptions: { annotation: TokenAnnotationSizeKey; labelKey: string }[] = [
     { annotation: 'reading', labelKey: 'settings.dictionaryTokenAnnotationReadingSize' },
     { annotation: 'frequency', labelKey: 'settings.dictionaryTokenAnnotationFrequencySize' },
     { annotation: 'pitchAccent', labelKey: 'settings.dictionaryTokenAnnotationPitchAccentSize' },
+    { annotation: 'gloss', labelKey: 'settings.dictionaryTokenAnnotationGlossSize' },
 ];
 const tokenAnnotationTriggerOptions: { annotation: TokenAnnotationTriggerKey; labelKey: string }[] = [
     { annotation: 'reading', labelKey: 'settings.dictionaryTokenReadingAnnotation' },
     { annotation: 'frequency', labelKey: 'settings.dictionaryTokenFrequencyAnnotation' },
     { annotation: 'pitchAccent', labelKey: 'settings.dictionaryTokenPitchAccentAnnotation' },
+    { annotation: 'gloss', labelKey: 'settings.dictionaryTokenGlossAnnotation' },
 ];
 const legacyVideoHoverAnnotationKeys: TokenAnnotationHoverKey[] = ['color', 'reading', 'frequency'];
 
@@ -1277,6 +1280,28 @@ const DictionarySettingsTab: React.FC<Props> = ({
                             </SettingsTextField>
                         );
                     })}
+                {supportsDictionaryTokenAnnotationConfig &&
+                    (selectedDictionary.dictionaryTokenAnnotationConfig.onStatuses.some((s) => s.gloss) ||
+                        selectedDictionary.dictionaryTokenAnnotationConfig.onStates.some((s) => s.gloss)) && (
+                        <SettingsTextField
+                            fullWidth
+                            color="primary"
+                            variant="outlined"
+                            size="small"
+                            label={t('settings.dictionaryGlossPreferredDictionary')!}
+                            helperText={t('settings.dictionaryGlossPreferredDictionaryHelperText')!}
+                            placeholder={t('settings.dictionaryGlossPreferredDictionaryPlaceholder')!}
+                            value={selectedDictionary.dictionaryGlossPreferredDictionary}
+                            onChange={(e) => {
+                                const newTracks = [...dictionaryTracks];
+                                newTracks[selectedDictionaryTrack] = {
+                                    ...newTracks[selectedDictionaryTrack],
+                                    dictionaryGlossPreferredDictionary: e.target.value,
+                                };
+                                onSettingChanged('dictionaryTracks', newTracks);
+                            }}
+                        />
+                    )}
                 {!supportsDictionaryTokenAnnotationConfig && (
                     <>
                         <FormControl>
@@ -2317,6 +2342,7 @@ const DictionarySettingsTab: React.FC<Props> = ({
                             // Create a dummy token for previewing the styles
                             const localizedMaturity = t(`settings.dictionaryTokenStatus${tokenStatus}`);
                             const localizedReading = t(`settings.dictionaryTokenStatusReading${tokenStatus}`);
+                            const demoGloss = t('settings.dictionaryTokenAnnotationGlossDemo');
                             const token: InternalToken = {
                                 pos: [0, localizedMaturity.length],
                                 status: tokenStatus,
@@ -2329,6 +2355,7 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                 ],
                                 frequency: statusFrequencies[tokenStatus],
                                 pitchAccent: readingPitchAccents[localizedReading] ?? statusPitchAccents[tokenStatus],
+                                gloss: demoGloss,
                                 __internal: true,
                             };
                             const tokens: InternalToken[] = [token];
@@ -2357,6 +2384,7 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                     ],
                                     frequency: statusFrequencies[tokenStatus],
                                     pitchAccent: readingPitchAccents[ignoredReading] ?? statusPitchAccents[tokenStatus],
+                                    gloss: demoGloss,
                                     __internal: true,
                                 });
                             }

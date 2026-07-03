@@ -85,7 +85,14 @@
         "settings.webSocketServerUrl": "WebSocket Server URL",
         "settings.firefoxExtensionShortcutHelp": "Edit this shortcut from the Plugin manager at about:addons.",
         "settings.postMinePlayback": "Post-mining playback state",
-        "subtitlePlayer.multiSubtitleSelectHelp": "Click, hold, and drag to mine multiple subtitles"
+        "subtitlePlayer.multiSubtitleSelectHelp": "Click, hold, and drag to mine multiple subtitles",
+        "settings.dictionaryTokenGlossAnnotation": "Display word glosses",
+        "settings.dictionaryGlossPreferredDictionary": "Preferred gloss dictionary (optional)",
+        "settings.dictionaryGlossPreferredDictionaryPlaceholder": "First available dictionary",
+        "settings.dictionaryGlossPreferredDictionaryHelperText": "Name or alias of the Yomitan dictionary to take glosses from. Leave blank to use the first available gloss (respecting your Yomitan dictionary priority).",
+        "settings.dictionaryTokenAnnotationHoverGloss": "Only display word gloss on hover",
+        "settings.dictionaryTokenAnnotationGlossSize": "Word gloss size",
+        "settings.dictionaryTokenAnnotationGlossDemo": "meaning"
     },
     "extension": {},
     "external": {}
