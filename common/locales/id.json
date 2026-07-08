@@ -421,6 +421,8 @@
         "track1Field": "Kolom Trek Takarir 1",
         "track2Field": "Kolom Trek Takarir 2",
         "track3Field": "Kolom Trek Takarir 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Atur Ulang",
         "screenshots": "Image capture",
         "subtitleAppearance": "Tampilan Takarir",

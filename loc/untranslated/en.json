@@ -1,5 +1,7 @@
 {
     "common": {
+        "settings.clozeDeck": "Cloze Deck",
+        "settings.clozeWordField": "Cloze Word Field",
         "settings.dictionaryTokenGlossAnnotation": "Display word glosses",
         "settings.dictionaryGlossPreferredDictionary": "Preferred gloss dictionary (optional)",
         "settings.dictionaryGlossPreferredDictionaryPlaceholder": "First available dictionary",

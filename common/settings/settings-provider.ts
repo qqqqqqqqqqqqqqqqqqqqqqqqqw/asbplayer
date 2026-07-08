@@ -126,6 +126,8 @@ export const defaultSettings: AsbplayerSettings = {
     track1Field: '',
     track2Field: '',
     track3Field: '',
+    clozeDeck: '',
+    clozeWordField: '',
     ankiFieldSettings: {
         sentence: { order: 1, display: true },
         definition: { order: 2, display: true },

@@ -1,5 +1,7 @@
 {
     "common": {
+        "settings.clozeDeck": "Cloze Deck",
+        "settings.clozeWordField": "Cloze Word Field",
         "info.toggleSubtitlesShortcut": "Press \"{{keys}}\" to toggle subtitle display",
         "settings.dictionaryTokenGlossAnnotation": "Display word glosses",
         "settings.dictionaryGlossPreferredDictionary": "Preferred gloss dictionary (optional)",

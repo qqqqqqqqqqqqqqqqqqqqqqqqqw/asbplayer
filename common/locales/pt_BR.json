@@ -421,6 +421,8 @@
         "track1Field": "Campo da Faixa de Legendas 1",
         "track2Field": "Campo da Faixa de Legendas 2",
         "track3Field": "Campo da Faixa de Legendas 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Redefinir",
         "screenshots": "Image capture",
         "subtitleAppearance": "Aparência da legenda",

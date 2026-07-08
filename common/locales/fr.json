@@ -421,6 +421,8 @@
         "track1Field": "Champ de la piste de sous-titres 1",
         "track2Field": "Champ de la piste de sous-titres 2",
         "track3Field": "Champ de la piste de sous-titres 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Réinitialiser",
         "screenshots": "Image capture",
         "subtitleAppearance": "Apparence des sous-titres",

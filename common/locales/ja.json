@@ -421,6 +421,8 @@
         "track1Field": "字幕トラック1フィールド",
         "track2Field": "字幕トラック2フィールド",
         "track3Field": "字幕トラック3フィールド",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "リセット",
         "screenshots": "画面キャプチャ",
         "subtitleAppearance": "字幕の表示設定",

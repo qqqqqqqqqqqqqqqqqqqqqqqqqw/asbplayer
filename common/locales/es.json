@@ -421,6 +421,8 @@
         "track1Field": "Campo de la pista de subtítulos 1",
         "track2Field": "Campo de la pista de subtítulos 2",
         "track3Field": "Campo de la pista de subtítulos 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Restablecer",
         "screenshots": "Image capture",
         "subtitleAppearance": "Apariencia de Subtítulos",

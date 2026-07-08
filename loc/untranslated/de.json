@@ -1,5 +1,7 @@
 {
     "common": {
+        "settings.clozeDeck": "Cloze Deck",
+        "settings.clozeWordField": "Cloze Word Field",
         "binds.seekToBeginningOfCurrentOrPreviousSubtitle": "Seek to beginning of current/previous subtitle",
         "binds.toggleSidePanel": "Toggle side panel",
         "binds.toggleRepeat": "Toggle repeat mode",

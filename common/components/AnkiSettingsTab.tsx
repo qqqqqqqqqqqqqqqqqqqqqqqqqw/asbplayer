@@ -186,6 +186,8 @@ const AnkiSettingsTab: React.FC<Props> = ({
         track1Field,
         track2Field,
         track3Field,
+        clozeDeck,
+        clozeWordField,
         ankiFieldSettings,
         customAnkiFields,
         customAnkiFieldSettings,
@@ -661,6 +663,18 @@ const AnkiSettingsTab: React.FC<Props> = ({
                 );
             })}
             <AddCustomField onAddCustomField={handleAddCustomField} />
+            <AnkiSelect
+                label={t('settings.clozeDeck')}
+                value={clozeDeck}
+                selections={deckNames}
+                onValueChange={(value) => onSettingChanged('clozeDeck', value)}
+            />
+            <AnkiSelect
+                label={t('settings.clozeWordField')}
+                value={clozeWordField}
+                selections={fieldNames}
+                onValueChange={(value) => onSettingChanged('clozeWordField', value)}
+            />
             <ListField
                 textFieldComponent={SettingsTextField}
                 label={t('settings.tags')}

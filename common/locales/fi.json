@@ -421,6 +421,8 @@
         "track1Field": "Tekstitysraita 1",
         "track2Field": "Tekstitysraita 2",
         "track3Field": "Tekstitysraita 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Palauta",
         "screenshots": "Image capture",
         "subtitleAppearance": "Tekstityksen ulkoasu",

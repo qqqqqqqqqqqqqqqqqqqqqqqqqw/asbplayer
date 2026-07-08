@@ -421,6 +421,8 @@
         "track1Field": "Campo traccia sottotitoli 1",
         "track2Field": "Campo traccia sottotitoli 2",
         "track3Field": "Campo traccia sottotitoli 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Ripristina",
         "screenshots": "Acquisizione immagine",
         "subtitleAppearance": "Aspetto sottotitoli",

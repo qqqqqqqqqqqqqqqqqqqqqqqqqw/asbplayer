@@ -421,6 +421,8 @@
         "track1Field": "字幕轨道 1 字段",
         "track2Field": "字幕轨道 2 字段",
         "track3Field": "字幕轨道 3 字段",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "还原默认",
         "screenshots": "Image capture",
         "subtitleAppearance": "字幕外观",

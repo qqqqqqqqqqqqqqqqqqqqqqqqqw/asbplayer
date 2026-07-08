@@ -421,6 +421,8 @@
         "track1Field": "자막 트랙 1 필드",
         "track2Field": "자막 트랙 2 필드",
         "track3Field": "자막 트랙 3 필드",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "초기화",
         "screenshots": "Image capture",
         "subtitleAppearance": "자막 스타일",

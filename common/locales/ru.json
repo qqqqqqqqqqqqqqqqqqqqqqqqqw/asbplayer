@@ -421,6 +421,8 @@
         "track1Field": "Субтитры 1",
         "track2Field": "Субтитры 2",
         "track3Field": "Субтитры 3",
+        "clozeDeck": "Cloze Deck",
+        "clozeWordField": "Cloze Word Field",
         "reset": "Сбросить",
         "screenshots": "Image capture",
         "subtitleAppearance": "Внешний вид субтитров",

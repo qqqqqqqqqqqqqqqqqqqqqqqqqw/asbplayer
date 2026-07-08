@@ -1,5 +1,7 @@
 {
     "common": {
+        "settings.clozeDeck": "Cloze Deck",
+        "settings.clozeWordField": "Cloze Word Field",
         "action.openApp": "Open App",
         "action.updateLastCard": "Update Last Card",
         "action.hideOverlay": "Hide Overlay",
