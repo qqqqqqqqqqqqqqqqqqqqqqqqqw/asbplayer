@@ -6,6 +6,8 @@
         "settings.dictionaryGlossPreferredDictionaryHelperText": "Name or alias of the Yomitan dictionary to take glosses from. Leave blank to use the first available gloss (respecting your Yomitan dictionary priority).",
         "settings.dictionaryTokenAnnotationHoverGloss": "Only display word gloss on hover",
         "settings.dictionaryTokenAnnotationGlossSize": "Word gloss size",
+        "settings.dictionaryTokenAnnotationGlossVisualScale": "Word gloss offset",
+        "settings.dictionaryTokenAnnotationGlossReserveScale": "Word gloss reserved space",
         "settings.dictionaryTokenAnnotationGlossDemo": "meaning"
     },
     "extension": {},

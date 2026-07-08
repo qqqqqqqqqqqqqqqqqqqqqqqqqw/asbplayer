@@ -212,16 +212,17 @@
     z-index: 1;
 }
 
-/* Two knobs for a glossed word that also has a reading:
+/* Two knobs for a glossed word that also has a reading, each a multiplier of --asb-reading-size fed
+   from settings (--asb-gloss-*-scale; the fallbacks below match tokenAnnotationStyleValues' defaults):
    --asb-gloss-visual is how far the gloss floats above the reading (the on-screen gap within a line).
    --asb-gloss-reserve is how much space the token reserves in flow above itself. On a single line the
    reserve only pushes the whole block up (invisible); on a wrapped line it becomes the gap between
    lines, so it's kept smaller than the visual offset - the gloss then floats up into the natural
-   inter-line leading instead of pushing the lines apart. A reading's font box also carries built-in
-   padding beyond its glyphs, so both are well under the full --asb-reading-size. */
+   inter-line leading instead of pushing the lines apart. The visible gap is otherwise slightly
+   font-dependent even with leading-trim, so the user can fine-tune these scales. */
 .asb-gloss-reading-row {
-    --asb-gloss-visual: calc(var(--asb-reading-size) * 0.80);
-    --asb-gloss-reserve: calc(var(--asb-reading-size) * 0.20);
+    --asb-gloss-visual: calc(var(--asb-reading-size) * var(--asb-gloss-visual-scale, 1));
+    --asb-gloss-reserve: calc(var(--asb-reading-size) * var(--asb-gloss-reserve-scale, 0.7));
     padding-top: var(--asb-gloss-reserve);
 }
 
@@ -253,6 +254,24 @@
     font-size: var(--asb-gloss-size);
     line-height: 1;
     white-space: nowrap;
+}
+
+/* Leading-trim the two facing edges so each annotation box hugs its glyphs instead of the font em
+   box (whose internal leading varies per font). The gloss's underside becomes the alphabetic
+   baseline and the reading's over edge becomes the ideographic em top, so the --asb-gloss-visual
+   offset above maps to a much more consistent on-screen gap across fonts. A small residual remains
+   (browser ruby-box internals + font metric tables), which the user-facing scales fine-tune. Where
+   unsupported (e.g. Firefox today), the offsets above still apply and behave acceptably. */
+@supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
+    .asb-gloss-float::before {
+        text-box-trim: trim-both !important;
+        text-box-edge: cap alphabetic !important; /* Latin label: cap top, baseline bottom */
+    }
+
+    .asb-reading rt {
+        text-box-trim: trim-start !important; /* Trim only the over edge (the one facing the gloss) */
+        text-box-edge: ideographic alphabetic !important; /* Kana: over edge = ideographic em top */
+    }
 }
 
 .asbplayer-ui-frame {

@@ -251,6 +251,26 @@ const withTokenAnnotationSize = (
     },
 });
 
+type TokenAnnotationGlossScaleKey = 'glossVisualScale' | 'glossReserveScale';
+
+const withTokenAnnotationGlossScale = (
+    config: DictionaryTokenAnnotationConfig,
+    target: TokenAnnotationConfigTarget,
+    key: TokenAnnotationGlossScaleKey,
+    value: number
+): DictionaryTokenAnnotationConfig => ({
+    ...config,
+    [target]: {
+        ...config[target],
+        [key]: value,
+    },
+});
+
+const tokenAnnotationGlossScaleOptions: { key: TokenAnnotationGlossScaleKey; labelKey: string }[] = [
+    { key: 'glossVisualScale', labelKey: 'settings.dictionaryTokenAnnotationGlossVisualScale' },
+    { key: 'glossReserveScale', labelKey: 'settings.dictionaryTokenAnnotationGlossReserveScale' },
+];
+
 const withTokenAnnotationSelection = (
     config: DictionaryTokenAnnotationConfig,
     annotation: TokenAnnotationTriggerKey,
@@ -707,6 +727,14 @@ const DictionarySettingsTab: React.FC<Props> = ({
         (target: TokenAnnotationConfigTarget, annotation: TokenAnnotationSizeKey, size: number) => {
             updateDictionaryTokenAnnotationConfig((config) =>
                 withTokenAnnotationSize(config, target, annotation, size)
+            );
+        },
+        [updateDictionaryTokenAnnotationConfig]
+    );
+    const updateDictionaryTokenAnnotationGlossScale = useCallback(
+        (target: TokenAnnotationConfigTarget, key: TokenAnnotationGlossScaleKey, value: number) => {
+            updateDictionaryTokenAnnotationConfig((config) =>
+                withTokenAnnotationGlossScale(config, target, key, value)
             );
         },
         [updateDictionaryTokenAnnotationConfig]
@@ -2311,6 +2339,48 @@ const DictionarySettingsTab: React.FC<Props> = ({
                                                 },
                                                 input: {
                                                     endAdornment: <InputAdornment position="end">em</InputAdornment>,
+                                                },
+                                            }}
+                                        />
+                                    </div>
+                                </Stack>
+                            ))}
+                            {tokenAnnotationGlossScaleOptions.map(({ key, labelKey }) => (
+                                <Stack
+                                    key={key}
+                                    direction="row"
+                                    spacing={1}
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        width: '100%',
+                                    }}
+                                >
+                                    <Typography sx={{ minWidth: 'min(50%,110px)' }}>{t(labelKey)}</Typography>
+                                    <div style={{ flexGrow: 1 }} />
+                                    <div style={{ width: 'min(50%,110px)', flexShrink: 0 }}>
+                                        <SettingsTextField
+                                            type="number"
+                                            size="small"
+                                            value={
+                                                selectedDictionary.dictionaryTokenAnnotationConfig[
+                                                    tokenAnnotationTarget
+                                                ][key]
+                                            }
+                                            onChange={(e) =>
+                                                updateDictionaryTokenAnnotationGlossScale(
+                                                    tokenAnnotationTarget,
+                                                    key,
+                                                    Number(e.target.value)
+                                                )
+                                            }
+                                            slotProps={{
+                                                htmlInput: {
+                                                    min: 0,
+                                                    step: 0.05,
+                                                },
+                                                input: {
+                                                    endAdornment: <InputAdornment position="end">×</InputAdornment>,
                                                 },
                                             }}
                                         />

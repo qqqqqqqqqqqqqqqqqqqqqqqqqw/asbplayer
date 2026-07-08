@@ -50,6 +50,8 @@ function makeDefaultDictionaryTokenAnnotationConfigs() {
             frequency: { onHoverEnabled: false, size: 0.3 },
             pitchAccent: { onHoverEnabled: true, size: 0.1 },
             gloss: { onHoverEnabled: false, size: 0.3 },
+            glossVisualScale: 1,
+            glossReserveScale: 0.7,
         },
         subtitlePlayer: {
             color: { onHoverEnabled: false, size: 1 },
@@ -57,6 +59,8 @@ function makeDefaultDictionaryTokenAnnotationConfigs() {
             frequency: { onHoverEnabled: false, size: 0.5 },
             pitchAccent: { onHoverEnabled: true, size: 0.1 },
             gloss: { onHoverEnabled: false, size: 0.5 },
+            glossVisualScale: 1,
+            glossReserveScale: 0.15,
         },
         onStatuses: [
             { reading: false, frequency: false, pitchAccent: false, gloss: false },
@@ -614,6 +618,14 @@ const ensureDictionaryTracksConsistency = ({ dictionaryTracks }: Partial<Asbplay
                 (dt.dictionaryTokenAnnotationConfig[target] as any).gloss = {
                     ...defaultTrack.dictionaryTokenAnnotationConfig[target].gloss,
                 };
+            }
+            if (dt.dictionaryTokenAnnotationConfig[target].glossVisualScale === undefined) {
+                (dt.dictionaryTokenAnnotationConfig[target] as any).glossVisualScale =
+                    defaultTrack.dictionaryTokenAnnotationConfig[target].glossVisualScale;
+            }
+            if (dt.dictionaryTokenAnnotationConfig[target].glossReserveScale === undefined) {
+                (dt.dictionaryTokenAnnotationConfig[target] as any).glossReserveScale =
+                    defaultTrack.dictionaryTokenAnnotationConfig[target].glossReserveScale;
             }
         }
 

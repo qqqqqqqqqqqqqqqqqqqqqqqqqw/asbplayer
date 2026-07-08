@@ -237,6 +237,12 @@ export interface TokenAnnotationConfig {
     frequency: TokenAnnotationConfigOptions;
     pitchAccent: TokenAnnotationConfigOptions;
     gloss: TokenAnnotationConfigOptions;
+    // How far a gloss floats above the reading, and how much space it reserves in flow above the
+    // word, both as multipliers of --asb-reading-size. The visible gloss/reading gap is otherwise
+    // slightly font-dependent (font metrics leak through even with leading-trim), so these are
+    // exposed to the user for fine-tuning. See subtitles.css / video.css .asb-gloss-reading-row.
+    glossVisualScale: number;
+    glossReserveScale: number;
 }
 
 export type TokenAnnotationStyleValues = Record<string, string>;
@@ -247,6 +253,8 @@ export function tokenAnnotationStyleValues(config: TokenAnnotationConfig | undef
         '--asb-frequency-size': `${config?.frequency.size ?? 0.3}em`,
         '--asb-pitch-accent-size': `${config?.pitchAccent.size ?? 0.1}em`,
         '--asb-gloss-size': `${config?.gloss.size ?? 0.3}em`,
+        '--asb-gloss-visual-scale': `${config?.glossVisualScale ?? 1}`,
+        '--asb-gloss-reserve-scale': `${config?.glossReserveScale ?? 0.7}`,
     };
 }
 
@@ -330,6 +338,8 @@ const tokenAnnotationConfigComparators: {
     frequency: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
     pitchAccent: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
     gloss: (a, b) => areTokenAnnotationConfigOptionsEqual(a, b),
+    glossVisualScale: (a, b) => a === b,
+    glossReserveScale: (a, b) => a === b,
 };
 
 export function compareTokenAnnotationConfigField<K extends keyof TokenAnnotationConfig>(

@@ -565,6 +565,8 @@
         "dictionaryTokenAnnotationFrequencySize": "Word frequency size",
         "dictionaryTokenAnnotationPitchAccentSize": "Pitch accent size",
         "dictionaryTokenAnnotationGlossSize": "Word gloss size",
+        "dictionaryTokenAnnotationGlossVisualScale": "Word gloss offset",
+        "dictionaryTokenAnnotationGlossReserveScale": "Word gloss reserved space",
         "dictionaryTokenAnnotationGlossDemo": "meaning",
         "dictionaryColorizeFullyKnownTokens": "Colorize fully known words",
         "dictionaryTokenStatus5": "Mature",
