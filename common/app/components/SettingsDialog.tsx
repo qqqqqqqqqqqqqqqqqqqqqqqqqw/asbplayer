@@ -118,6 +118,7 @@ export default function SettingsDialog({
                     extensionSupportsDictionaryTokenAnnotationConfig={extension.supportsDictionaryTokenAnnotationConfig}
                     extensionSupportsSeekableTrackSetting={extension.supportsSeekableTrackSetting}
                     extensionSupportsAutoCopyableTrackSetting={extension.supportsAutoCopyableTrackSetting}
+                    extensionSupportsOffsetTrackSetting={extension.supportsOffsetTrackSetting}
                     extensionSupportsDictionaryTokenStatusDisplayAlpha={
                         extension.supportsDictionaryTokenStatusDisplayAlpha
                     }

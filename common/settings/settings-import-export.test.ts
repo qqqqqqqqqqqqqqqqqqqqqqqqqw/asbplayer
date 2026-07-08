@@ -83,6 +83,7 @@ it('validates exported settings', () => {
         autoPausePreference: 2,
         seekableTracks: 1,
         autoCopyableTracks: 1,
+        offsetTracks: 1,
         seekDuration: 4,
         speedChangeStep: 0.2,
         fastForwardModePlaybackRate: 3,

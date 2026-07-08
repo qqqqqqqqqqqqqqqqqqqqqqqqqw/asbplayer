@@ -282,12 +282,12 @@ export default class KeyBindings {
             (event, offset) => {
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                context.subtitleController.offset(offset);
+                context.subtitleController.offset(offset, false, context.offsetTracks);
             },
             () => context.subtitleController.subtitles.length === 0,
             () => context.video.currentTime * 1000,
             () => context.subtitleController.subtitles,
-            () => context.seekableTracks,
+            () => context.offsetTracks,
             true
         );
 
@@ -295,7 +295,7 @@ export default class KeyBindings {
             (event, offset) => {
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                context.subtitleController.offset(offset);
+                context.subtitleController.offset(offset, false, context.offsetTracks);
             },
             () => context.subtitleController.subtitles.length === 0,
             () => context.subtitleController.subtitles,

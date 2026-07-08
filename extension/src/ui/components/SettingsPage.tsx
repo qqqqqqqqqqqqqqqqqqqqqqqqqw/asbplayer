@@ -125,6 +125,7 @@ const SettingsPage = ({
                         extensionSupportsDictionaryTokenAnnotationConfig
                         extensionSupportsSeekableTrackSetting
                         extensionSupportsAutoCopyableTrackSetting
+                        extensionSupportsOffsetTrackSetting
                         extensionSupportsDictionaryTokenStatusDisplayAlpha
                         extensionSupportsDictionaryYomitanMecab
                         chromeKeyBinds={commands}

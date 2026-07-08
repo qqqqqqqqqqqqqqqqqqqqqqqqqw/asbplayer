@@ -646,6 +646,7 @@
         "yomitanHelperText": "Instructions to setup Yomitan API are <0>here<0>.",
         "seekableTracks": "Subtitle tracks affected by playback modes and keyboard shortcuts",
         "autoCopyableTracks": "Subtitle tracks eligible for auto-copy",
+        "offsetTracks": "Subtitle tracks affected by timing offset",
         "dictionaryTokenGlossAnnotation": "Display word glosses",
         "dictionaryGlossPreferredDictionary": "Preferred gloss dictionary (optional)",
         "dictionaryGlossPreferredDictionaryPlaceholder": "First available dictionary",

@@ -476,6 +476,9 @@ const settingsSchema = {
         autoCopyableTracks: {
             type: 'number',
         },
+        offsetTracks: {
+            type: 'number',
+        },
         subtitleHtml: {
             type: 'number',
         },

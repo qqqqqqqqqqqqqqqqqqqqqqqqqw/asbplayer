@@ -214,6 +214,10 @@ export default class ChromeExtension {
         return this.installed && gte(this.version, '1.17.0');
     }
 
+    get supportsOffsetTrackSetting() {
+        return this.installed && gte(this.version, '1.19.0');
+    }
+
     get supportsSeekableTrackSetting() {
         return this.installed && gte(this.version, '1.17.0');
     }

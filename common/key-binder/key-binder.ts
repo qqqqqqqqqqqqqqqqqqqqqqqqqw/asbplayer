@@ -9,8 +9,10 @@ export function adjacentSubtitle(
     seekableTracks: SeekableTracks
 ) {
     const now = time;
-    let adjacentSubtitleIndex = -1;
-    let minDiff = Number.MAX_SAFE_INTEGER;
+    let closestIndex = -1;
+    let closestDiff = Number.MAX_SAFE_INTEGER;
+    let secondClosestIndex = -1;
+    let secondClosestDiff = Number.MAX_SAFE_INTEGER;
 
     for (let i = 0; i < subtitles.length; ++i) {
         const s = subtitles[i];
@@ -19,26 +21,34 @@ export function adjacentSubtitle(
             continue;
         }
 
-        const diff = forward ? s.start - now : now - s.start;
-
-        if (minDiff <= diff) {
-            continue;
-        }
-
-        if (forward && now < s.start) {
-            minDiff = diff;
-            adjacentSubtitleIndex = i;
-        } else if (!forward && now > s.start) {
-            minDiff = diff;
-            adjacentSubtitleIndex = now < s.end ? Math.max(0, i - 1) : i;
+        if (forward) {
+            const diff = s.start - now;
+            if (diff > 0 && diff < closestDiff) {
+                closestDiff = diff;
+                closestIndex = i;
+            }
+        } else {
+            const diff = now - s.start;
+            if (diff > 0 && diff < closestDiff) {
+                secondClosestDiff = closestDiff;
+                secondClosestIndex = closestIndex;
+                closestDiff = diff;
+                closestIndex = i;
+            } else if (diff > 0 && diff < secondClosestDiff) {
+                secondClosestDiff = diff;
+                secondClosestIndex = i;
+            }
         }
     }
 
-    if (adjacentSubtitleIndex !== -1) {
-        return subtitles[adjacentSubtitleIndex];
+    if (!forward) {
+        if (closestIndex === -1) return null;
+        const inside = now < subtitles[closestIndex].end;
+        const idx = inside ? secondClosestIndex : closestIndex;
+        return idx === -1 ? null : subtitles[idx];
     }
 
-    return null;
+    return closestIndex === -1 ? null : subtitles[closestIndex];
 }
 
 export interface KeyBinder {

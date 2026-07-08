@@ -13,6 +13,7 @@ import {
 import {
     AutoCopyableTracks,
     DictionaryTrack,
+    OffsetTracks,
     SeekableTracks,
     SettingsProvider,
     SubtitleAlignment,
@@ -20,8 +21,10 @@ import {
     TextSubtitleSettings,
     allTextSubtitleSettings,
     calculateAutoCopyableTracksValue,
+    calculateOffsetTracksValue,
     calculateSeekableTracksValue,
     isTrackAutoCopyable,
+    isTrackOffsetAffected,
     isTrackSeekable,
     tokenAnnotationStyleValues,
 } from '@project/common/settings';
@@ -125,6 +128,7 @@ export default class SubtitleController {
     dictionaryTrackSettings?: DictionaryTrack[];
     autoPauseContext: AutoPauseContext = new AutoPauseContext();
     _seekableTracks: SeekableTracks = calculateSeekableTracksValue([0]);
+    _offsetTracks: OffsetTracks = calculateOffsetTracksValue([0]);
 
     onNextSeekableToShow?: (subtitle: SubtitleModel) => void;
     onSeekableSlice?: (subtitle: SubtitleSlice<IndexedSubtitleModel>) => void;
@@ -193,6 +197,10 @@ export default class SubtitleController {
         this.seekableSubtitleCollection.setSubtitles(
             this.subtitleAnnotations.subtitles.filter((s) => isTrackSeekable(this._seekableTracks, s.track))
         );
+    }
+
+    set offsetTracks(offsetTracks: OffsetTracks) {
+        this._offsetTracks = offsetTracks;
     }
 
     reset() {
@@ -720,21 +728,26 @@ export default class SubtitleController {
         }
     }
 
-    offset(offset: number, skipNotifyPlayer = false) {
+    offset(offset: number, skipNotifyPlayer = false, offsetTracks?: OffsetTracks) {
         if (!this.subtitles || this.subtitles.length === 0) {
             return;
         }
 
-        this.subtitles = this.subtitles.map((s) => ({
-            text: s.text,
-            textImage: s.textImage,
-            start: s.originalStart + offset,
-            originalStart: s.originalStart,
-            end: s.originalEnd + offset,
-            originalEnd: s.originalEnd,
-            track: s.track,
-            index: s.index,
-        }));
+        this.subtitles = this.subtitles.map((s) => {
+            if (offsetTracks !== undefined && !isTrackOffsetAffected(offsetTracks, s.track)) {
+                return s;
+            }
+            return {
+                text: s.text,
+                textImage: s.textImage,
+                start: s.originalStart + offset,
+                originalStart: s.originalStart,
+                end: s.originalEnd + offset,
+                originalEnd: s.originalEnd,
+                track: s.track,
+                index: s.index,
+            };
+        });
 
         this.lastOffsetChangeTimestamp = Date.now();
 
@@ -765,7 +778,7 @@ export default class SubtitleController {
             return 0;
         }
 
-        const s = this.subtitles[0];
+        const s = this.subtitles.find((s) => isTrackOffsetAffected(this._offsetTracks, s.track)) ?? this.subtitles[0];
         return s.start - s.originalStart;
     }
 
