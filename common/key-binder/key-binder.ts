@@ -9,54 +9,46 @@ export function adjacentSubtitle(
     seekableTracks: SeekableTracks
 ) {
     const now = time;
-    let adjacentSubtitleIndex = -1;
-    let minDiff = Number.MAX_SAFE_INTEGER;
+    let closestIndex = -1;
+    let closestDiff = Number.MAX_SAFE_INTEGER;
+    let secondClosestIndex = -1;
+    let secondClosestDiff = Number.MAX_SAFE_INTEGER;
 
-    if (forward) {
-        for (let i = 0; i < subtitles.length; ++i) {
-            const s = subtitles[i];
+    for (let i = 0; i < subtitles.length; ++i) {
+        const s = subtitles[i];
 
-            if (!isTrackSeekable(seekableTracks, s.track)) {
-                continue;
-            }
+        if (!isTrackSeekable(seekableTracks, s.track)) {
+            continue;
+        }
 
+        if (forward) {
             const diff = s.start - now;
-
-            if (minDiff <= diff) {
-                continue;
+            if (diff > 0 && diff < closestDiff) {
+                closestDiff = diff;
+                closestIndex = i;
             }
-
-            if (now < s.start) {
-                minDiff = diff;
-                adjacentSubtitleIndex = i;
-            }
-        }
-    } else {
-        for (let i = subtitles.length - 1; i >= 0; --i) {
-            const s = subtitles[i];
-
-            if (!isTrackSeekable(seekableTracks, s.track)) {
-                continue;
-            }
-
-            const diff = now - s.end;
-
-            if (minDiff <= diff) {
-                continue;
-            }
-
-            if (now > s.end) {
-                minDiff = diff;
-                adjacentSubtitleIndex = i;
+        } else {
+            const diff = now - s.start;
+            if (diff > 0 && diff < closestDiff) {
+                secondClosestDiff = closestDiff;
+                secondClosestIndex = closestIndex;
+                closestDiff = diff;
+                closestIndex = i;
+            } else if (diff > 0 && diff < secondClosestDiff) {
+                secondClosestDiff = diff;
+                secondClosestIndex = i;
             }
         }
     }
 
-    if (adjacentSubtitleIndex !== -1) {
-        return subtitles[adjacentSubtitleIndex];
+    if (!forward) {
+        if (closestIndex === -1) return null;
+        const inside = now < subtitles[closestIndex].end;
+        const idx = inside ? secondClosestIndex : closestIndex;
+        return idx === -1 ? null : subtitles[idx];
     }
 
-    return null;
+    return closestIndex === -1 ? null : subtitles[closestIndex];
 }
 
 export interface KeyBinder {
