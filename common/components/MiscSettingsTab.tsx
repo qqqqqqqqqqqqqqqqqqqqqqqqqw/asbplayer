@@ -38,7 +38,7 @@ function regexIsValid(regex: string) {
     try {
         new RegExp(regex.trim());
         return true;
-    } catch (e) {
+    } catch {
         return false;
     }
 }
@@ -156,7 +156,9 @@ const MiscSettingTab: React.FC<Props> = ({
                                 <Radio
                                     checked={themeType === 'light'}
                                     value="light"
-                                    onChange={(event) => event.target.checked && onSettingChanged('themeType', 'light')}
+                                    onChange={(event) =>
+                                        event.target.checked && void onSettingChanged('themeType', 'light')
+                                    }
                                 />
                             }
                             label={t('settings.themeLight')}
@@ -166,7 +168,9 @@ const MiscSettingTab: React.FC<Props> = ({
                                 <Radio
                                     checked={themeType === 'dark'}
                                     value="dark"
-                                    onChange={(event) => event.target.checked && onSettingChanged('themeType', 'dark')}
+                                    onChange={(event) =>
+                                        event.target.checked && void onSettingChanged('themeType', 'dark')
+                                    }
                                 />
                             }
                             label={t('settings.themeDark')}
@@ -236,7 +240,7 @@ const MiscSettingTab: React.FC<Props> = ({
                                             <Checkbox
                                                 checked={isTrackAutoCopyable(autoCopyableTracks, trackIndex)}
                                                 onChange={(event) => {
-                                                    onSettingChanged(
+                                                    void onSettingChanged(
                                                         'autoCopyableTracks',
                                                         updateAutoCopyableTracksValue(
                                                             autoCopyableTracks,
@@ -266,7 +270,7 @@ const MiscSettingTab: React.FC<Props> = ({
                                             <Checkbox
                                                 checked={isTrackSeekable(seekableTracks, trackIndex)}
                                                 onChange={(event) => {
-                                                    onSettingChanged(
+                                                    void onSettingChanged(
                                                         'seekableTracks',
                                                         updateSeekableTracksValue(
                                                             seekableTracks,
@@ -320,7 +324,7 @@ const MiscSettingTab: React.FC<Props> = ({
                             control={
                                 <Switch
                                     checked={thumbnailPreview}
-                                    onChange={(event) => onSettingChanged('thumbnailPreview', !thumbnailPreview)}
+                                    onChange={() => onSettingChanged('thumbnailPreview', !thumbnailPreview)}
                                 />
                             }
                             label={t('settings.thumbnailPreview')}
@@ -330,9 +334,7 @@ const MiscSettingTab: React.FC<Props> = ({
                             control={
                                 <Switch
                                     checked={subtitleAboveThumbnail}
-                                    onChange={(event) =>
-                                        onSettingChanged('subtitleAboveThumbnail', !subtitleAboveThumbnail)
-                                    }
+                                    onChange={() => onSettingChanged('subtitleAboveThumbnail', !subtitleAboveThumbnail)}
                                     disabled={!thumbnailPreview}
                                 />
                             }
@@ -366,7 +368,8 @@ const MiscSettingTab: React.FC<Props> = ({
                                     checked={subtitleHtml === SubtitleHtml.remove}
                                     value={SubtitleHtml.remove}
                                     onChange={(event) =>
-                                        event.target.checked && onSettingChanged('subtitleHtml', SubtitleHtml.remove)
+                                        event.target.checked &&
+                                        void onSettingChanged('subtitleHtml', SubtitleHtml.remove)
                                     }
                                 />
                             }
@@ -378,7 +381,8 @@ const MiscSettingTab: React.FC<Props> = ({
                                     checked={subtitleHtml === SubtitleHtml.render}
                                     value={SubtitleHtml.render}
                                     onChange={(event) =>
-                                        event.target.checked && onSettingChanged('subtitleHtml', SubtitleHtml.render)
+                                        event.target.checked &&
+                                        void onSettingChanged('subtitleHtml', SubtitleHtml.render)
                                     }
                                 />
                             }
@@ -407,7 +411,7 @@ const MiscSettingTab: React.FC<Props> = ({
                                         value={PauseOnHoverMode.disabled}
                                         onChange={(event) =>
                                             event.target.checked &&
-                                            onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.disabled)
+                                            void onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.disabled)
                                         }
                                     />
                                 }
@@ -420,7 +424,7 @@ const MiscSettingTab: React.FC<Props> = ({
                                         value={PauseOnHoverMode.inAndOut}
                                         onChange={(event) =>
                                             event.target.checked &&
-                                            onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.inAndOut)
+                                            void onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.inAndOut)
                                         }
                                     />
                                 }
@@ -433,7 +437,7 @@ const MiscSettingTab: React.FC<Props> = ({
                                         value={PauseOnHoverMode.inNotOut}
                                         onChange={(event) =>
                                             event.target.checked &&
-                                            onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.inNotOut)
+                                            void onSettingChanged('pauseOnHoverMode', PauseOnHoverMode.inNotOut)
                                         }
                                     />
                                 }

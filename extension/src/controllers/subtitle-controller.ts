@@ -35,8 +35,13 @@ import {
     SubtitleAnnotations,
     ANNOTATIONS_VIDEO_RENDER_BEHIND_MS,
     ANNOTATIONS_VIDEO_RENDER_AHEAD_MS,
-} from '@project/common/subtitle-annotations';
-import { arrayEquals, computeStyleString, surroundingSubtitles } from '@project/common/util';
+} from '@project/common/annotations';
+import {
+    arrayEquals,
+    compareSubtitlesForDisplay,
+    computeStyleString,
+    surroundingSubtitles,
+} from '@project/common/util';
 import i18n from 'i18next';
 import {
     CachingElementOverlay,
@@ -92,12 +97,12 @@ export default class SubtitleController {
     private lastLoadedMessageTimestamp: number;
     private lastOffsetChangeTimestamp: number;
     private showingOffset?: number;
-    private subtitlesInterval?: NodeJS.Timeout;
+    private subtitlesInterval?: ReturnType<typeof setInterval>;
     private showingLoadedMessage: boolean;
     private subtitleSettings?: SubtitleSettings;
     private subtitleStyles?: string[];
     private subtitleClasses?: string[];
-    private notificationElementOverlayHideTimeout?: NodeJS.Timeout;
+    private notificationElementOverlayHideTimeout?: ReturnType<typeof setTimeout>;
     subtitleAnnotations: SubtitleAnnotations;
     /**
      * Seekable subittle collection is a subtitle collection that contains gap intervals for only "seekable" tracks.
@@ -130,9 +135,9 @@ export default class SubtitleController {
     _seekableTracks: SeekableTracks = calculateSeekableTracksValue([0]);
     _offsetTracks: OffsetTracks = calculateOffsetTracksValue([0]);
 
-    onNextSeekableToShow?: (subtitle: SubtitleModel) => void;
+    onNextSeekableToShow?: (subtitle: SubtitleModel) => Promise<void>;
     onSeekableSlice?: (subtitle: SubtitleSlice<IndexedSubtitleModel>) => void;
-    onOffsetChange?: () => void;
+    onOffsetChange?: () => Promise<void>;
     onMouseOver?: (event: MouseEvent) => void;
     onMouseOut?: (event: MouseEvent) => void;
 
@@ -304,12 +309,8 @@ export default class SubtitleController {
         const newAlignments = allTextSubtitleSettings(newSubtitleSettings).map((s) => s.subtitleAlignment);
         if (!arrayEquals(newAlignments, Object.values(this.subtitleTrackAlignments), (a, b) => a === b)) {
             this.subtitleTrackAlignments = newAlignments;
-            this.shouldRenderBottomOverlay = Object.values(this.subtitleTrackAlignments).includes(
-                'bottom' as SubtitleAlignment
-            );
-            this.shouldRenderTopOverlay = Object.values(this.subtitleTrackAlignments).includes(
-                'top' as SubtitleAlignment
-            );
+            this.shouldRenderBottomOverlay = Object.values(this.subtitleTrackAlignments).includes('bottom');
+            this.shouldRenderTopOverlay = Object.values(this.subtitleTrackAlignments).includes('top');
             const { subtitleOverlayParams, topSubtitleOverlayParams, notificationOverlayParams } =
                 this._elementOverlayParams();
             this._applyElementOverlayParams(this.bottomSubtitlesElementOverlay, subtitleOverlayParams);
@@ -460,7 +461,7 @@ export default class SubtitleController {
             },
             src: this.context.registeredVideoSrc,
         };
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     bind() {
@@ -491,7 +492,7 @@ export default class SubtitleController {
             this.onSeekableSlice?.(seekableSlice);
 
             if (slice.willStopShowing && this._trackEnabled(slice.willStopShowing)) {
-                this.autoPauseContext.willStopShowing(slice.willStopShowing);
+                void this.autoPauseContext.willStopShowing(slice.willStopShowing);
             }
 
             if (slice.startedShowing && this._trackEnabled(slice.startedShowing)) {
@@ -499,7 +500,7 @@ export default class SubtitleController {
             }
 
             if (seekableSlice.nextToShow && seekableSlice.nextToShow.length > 0) {
-                this.onNextSeekableToShow?.(seekableSlice.nextToShow[0]);
+                void this.onNextSeekableToShow?.(seekableSlice.nextToShow[0]);
             }
 
             const subtitlesAreNew =
@@ -589,13 +590,13 @@ export default class SubtitleController {
                     src: this.context.registeredVideoSrc,
                 };
 
-                browser.runtime.sendMessage(command);
+                void browser.runtime.sendMessage(command);
             }
         }
     }
 
     private _findShowingSubtitles(slice: SubtitleSlice<IndexedSubtitleModel>): IndexedSubtitleModel[] {
-        return slice.showing.filter((s) => this._trackEnabled(s)).sort((s1, s2) => s1.track - s2.track);
+        return slice.showing.filter((s) => this._trackEnabled(s)).sort(compareSubtitlesForDisplay);
     }
 
     private _trackEnabled(subtitle: SubtitleModel) {
@@ -693,7 +694,6 @@ export default class SubtitleController {
 
     currentSubtitle(): [IndexedSubtitleModel | null, SubtitleModel[] | null] {
         const now = 1000 * this.context.video.currentTime;
-        let subtitle = null;
         let index = null;
 
         for (let i = 0; i < this.subtitles.length; ++i) {
@@ -704,7 +704,6 @@ export default class SubtitleController {
                 now < s.end &&
                 (typeof s.track === 'undefined' || !this.disabledSubtitleTracks[s.track])
             ) {
-                subtitle = s;
                 index = i;
                 break;
             }
@@ -761,14 +760,14 @@ export default class SubtitleController {
                 src: this.context.registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
         }
 
-        this.onOffsetChange?.();
+        void this.onOffsetChange?.();
 
-        this.settings.getSingle('rememberSubtitleOffset').then((rememberSubtitleOffset) => {
+        void this.settings.getSingle('rememberSubtitleOffset').then((rememberSubtitleOffset) => {
             if (rememberSubtitleOffset) {
-                this.settings.set({ lastSubtitleOffset: offset });
+                void this.settings.set({ lastSubtitleOffset: offset });
             }
         });
     }
@@ -787,9 +786,21 @@ export default class SubtitleController {
         return roundedOffset >= 0 ? '+' + roundedOffset + ' ms' : roundedOffset + ' ms';
     }
 
-    notification(locKey: string, replacements?: { [key: string]: string }) {
-        const text = i18n.t(locKey, replacements ?? {});
-        this.notificationElementOverlay.setHtml([{ html: () => this._buildTextHtml(text) }]);
+    notification({
+        replacements,
+        locKey,
+        text,
+    }: {
+        replacements?: { [key: string]: string };
+        locKey?: string;
+        text?: string;
+    }) {
+        if (!text && !locKey) {
+            return;
+        }
+
+        const notificationText = text ?? i18n.t(locKey!, replacements ?? {});
+        this.notificationElementOverlay.setHtml([{ html: () => this._buildTextHtml(notificationText) }]);
 
         if (this.notificationElementOverlayHideTimeout) {
             clearTimeout(this.notificationElementOverlayHideTimeout);

@@ -32,6 +32,7 @@ import {
 } from '@project/common/settings';
 import {
     arrayEquals,
+    compareSubtitlesForDisplay,
     surroundingSubtitles,
     mockSurroundingSubtitles,
     seekWithNudge,
@@ -46,7 +47,7 @@ import {
     getAnnotationsHtml,
     ANNOTATIONS_VIDEO_RENDER_BEHIND_MS,
     ANNOTATIONS_VIDEO_RENDER_AHEAD_MS,
-} from '@project/common/subtitle-annotations';
+} from '@project/common/annotations';
 import Clock from '../services/clock';
 import Controls, { Point } from './Controls';
 import PlayerChannel from '../services/player-channel';
@@ -124,7 +125,7 @@ function notifyReady(
     if (element.audioTracks) {
         tracks = [];
 
-        for (let t of element.audioTracks) {
+        for (const t of element.audioTracks) {
             tracks.push({
                 id: t.id,
                 label: t.label,
@@ -333,10 +334,10 @@ const fetchLastControlType = async (): Promise<ControlType | undefined> => {
         return undefined;
     }
 
-    return parseInt(val) as ControlType;
+    return parseInt(val);
 };
 
-const saveLastControlType = (controlType: ControlType): void => {
+const saveLastControlType = async (controlType: ControlType): Promise<void> => {
     storage.set(lastControlTypeKey, String(controlType));
 };
 
@@ -460,7 +461,7 @@ export default function VideoPlayer({
 
             playerChannel.pause();
         };
-        context.onWillStopShowing = (subtitle: SubtitleModel) => {
+        context.onWillStopShowing = async (subtitle: SubtitleModel) => {
             if (
                 !playModes.has(PlayMode.autoPause) ||
                 miscSettings.autoPausePreference !== AutoPausePreference.atEnd ||
@@ -480,7 +481,7 @@ export default function VideoPlayer({
 
     useEffect(() => {
         if (i18n.language !== miscSettings.language) {
-            i18n.changeLanguage(miscSettings.language);
+            void i18n.changeLanguage(miscSettings.language);
         }
     }, [miscSettings]);
 
@@ -529,7 +530,7 @@ export default function VideoPlayer({
                         notifyReady(videoElement, playerChannel, setAudioTracks, setSelectedAudioTrack);
                 }
 
-                videoElement.oncanplay = (event) => {
+                videoElement.oncanplay = () => {
                     playerChannel.readyState(4);
 
                     if (playing()) {
@@ -537,8 +538,8 @@ export default function VideoPlayer({
                     }
                 };
 
-                videoElement.ontimeupdate = (event) => clock.setTime(element.currentTime * 1000);
-                videoElement.onerror = (event) => onErrorRef.current?.(errorMessage(element));
+                videoElement.ontimeupdate = () => clock.setTime(element.currentTime * 1000);
+                videoElement.onerror = () => onErrorRef.current?.(errorMessage(element));
                 videoElement.onplay = updatePlayerState;
                 videoElement.onpause = updatePlayerState;
                 videoElement.onratechange = updatePlayerState;
@@ -560,7 +561,6 @@ export default function VideoPlayer({
             return;
         }
 
-        // @ts-ignore
         for (const t of audioTracks) {
             if (t.id === id) {
                 t.enabled = true;
@@ -619,9 +619,11 @@ export default function VideoPlayer({
             setVideoFileName(videoFileName);
         });
 
-        playerChannel.onPlay(async () => {
-            await videoRef.current?.play();
-            clock.start();
+        playerChannel.onPlay(() => {
+            void (async () => {
+                await videoRef.current?.play();
+                clock.start();
+            })();
         });
 
         playerChannel.onPause(() => {
@@ -721,7 +723,7 @@ export default function VideoPlayer({
             setAlertSeverity(severity as AlertColor);
         });
 
-        window.onbeforeunload = (e) => {
+        window.onbeforeunload = () => {
             if (!poppingInRef.current) {
                 playerChannel.close();
             }
@@ -810,7 +812,6 @@ export default function VideoPlayer({
             videoPreview.src = videoFile;
             videoPreview.load();
         } else {
-            settings.thumbnailPreview;
             videoPreview.pause();
             videoPreview.removeAttribute('src');
             videoPreview.load();
@@ -837,11 +838,11 @@ export default function VideoPlayer({
             return;
         }
 
-        var bounds = containerRef.current.getBoundingClientRect();
+        const bounds = containerRef.current.getBoundingClientRect();
         mousePositionRef.current = { x: e.clientX - bounds.left, y: e.clientY - bounds.top };
     }, []);
 
-    const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const handleMouseLeave = useCallback(() => {
         mousePositionRef.current = undefined;
     }, []);
 
@@ -896,15 +897,15 @@ export default function VideoPlayer({
             }
 
             if (slice.willStopShowing && !disabledSubtitleTracks[slice.willStopShowing.track]) {
-                autoPauseContext.willStopShowing(slice.willStopShowing);
+                void autoPauseContext.willStopShowing(slice.willStopShowing);
             }
 
-            showSubtitles = showSubtitles.sort((s1, s2) => s1.track - s2.track);
+            showSubtitles = showSubtitles.sort(compareSubtitlesForDisplay);
 
             if (!arrayEquals(showSubtitles, showSubtitlesRef.current, (s1, s2) => s1.index === s2.index)) {
                 setShowSubtitles(showSubtitles);
                 if (showSubtitles.length > 0 && miscSettings.autoCopyCurrentSubtitle && document.hasFocus()) {
-                    navigator.clipboard.writeText(showSubtitles.map((s) => s.text).join('\n')).catch((e) => {
+                    navigator.clipboard.writeText(showSubtitles.map((s) => s.text).join('\n')).catch(() => {
                         // ignore
                     });
                 }
@@ -1071,7 +1072,7 @@ export default function VideoPlayer({
     useEffect(() => {
         return keyBinder.bindAdjustSubtitlePositionOffset(
             (event, increase) => {
-                let newSubtitleSettings = { ...subtitleSettings };
+                const newSubtitleSettings = { ...subtitleSettings };
 
                 event.preventDefault();
                 if (increase) {
@@ -1090,7 +1091,7 @@ export default function VideoPlayer({
     useEffect(() => {
         return keyBinder.bindAdjustTopSubtitlePositionOffset(
             (event, increase) => {
-                let newSubtitleSettings = { ...subtitleSettings };
+                const newSubtitleSettings = { ...subtitleSettings };
 
                 event.preventDefault();
                 if (increase) {
@@ -1252,6 +1253,9 @@ export default function VideoPlayer({
                 return;
             }
 
+            const currentTimestamp = clock.time(length);
+            let mediaTimestamp: number;
+
             if (subtitle === undefined || surroundingSubtitles === undefined) {
                 const extracted = extractSubtitles();
 
@@ -1261,9 +1265,12 @@ export default function VideoPlayer({
 
                 subtitle = extracted.currentSubtitle;
                 surroundingSubtitles = extracted.surroundingSubtitles;
+                mediaTimestamp = currentTimestamp;
+            } else if (currentTimestamp >= subtitle.start && currentTimestamp <= subtitle.end) {
+                mediaTimestamp = currentTimestamp;
+            } else {
+                mediaTimestamp = subtitleTimestampWithDelay(subtitle, settings.streamingScreenshotDelay);
             }
-
-            const mediaTimestamp = subtitleTimestampWithDelay(subtitle, settings.streamingScreenshotDelay);
 
             mineSubtitle(
                 postMineAction,
@@ -1280,10 +1287,12 @@ export default function VideoPlayer({
         [
             mineSubtitle,
             extractSubtitles,
+            clock,
             settings.streamingScreenshotDelay,
             selectedAudioTrack,
             videoFile,
             videoFileName,
+            length,
         ]
     );
 
@@ -1298,7 +1307,7 @@ export default function VideoPlayer({
 
                 if (!isMobile) {
                     setAlertSeverity('info');
-                    setAlertMessage(t('info.manualMiningIntervalPrompt')!);
+                    setAlertMessage(t('info.manualMiningIntervalPrompt'));
                     setAlertDisableAutoHide(true);
                     setAlertOpen(true);
                 }
@@ -1490,7 +1499,7 @@ export default function VideoPlayer({
 
     useEffect(() => {
         return keyBinder.bindCopy(
-            (event, subtitle) => {
+            (event) => {
                 event.preventDefault();
                 inferAndExecuteMiningBehavior(PostMineAction.none);
             },
@@ -1997,6 +2006,7 @@ export default function VideoPlayer({
                 onLoadFiles={popOut ? undefined : handleLoadFiles}
                 blurOverlayEnabled={blurOverlayVisible}
                 onBlurOverlayToggle={handleBlurOverlayToggle}
+                timestampPreviewEnabled={!isMobile}
             />
         </div>
     );

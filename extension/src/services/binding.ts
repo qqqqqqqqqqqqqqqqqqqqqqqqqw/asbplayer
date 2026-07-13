@@ -96,7 +96,7 @@ import { bufferToBase64 } from '@project/common/base64';
 import { pgsParserWorkerFactory } from './pgs-parser-worker-factory';
 import { DictionaryProvider } from '@project/common/dictionary-db/dictionary-provider';
 import { ExtensionDictionaryStorage } from './extension-dictionary-storage';
-import { HoveredToken } from '@project/common/subtitle-annotations';
+import { HoveredToken } from '@project/common/annotations';
 import { v4 as uuidv4 } from 'uuid';
 
 let netflix = false;
@@ -205,7 +205,7 @@ export default class Binding {
         sender: Browser.runtime.MessageSender,
         sendResponse: (response?: any) => void
     ) => void;
-    private heartbeatInterval?: NodeJS.Timeout;
+    private heartbeatInterval?: ReturnType<typeof setInterval>;
     private _registeredVideoSrc: string;
 
     // In the case of firefox, we need to avoid capturing the audio stream more than once,
@@ -293,7 +293,7 @@ export default class Binding {
         }
 
         this._playModes = newModes;
-        this.mobileVideoOverlayController.updateModel();
+        void this.mobileVideoOverlayController.updateModel();
     }
 
     private _disablePlayMode(mode: PlayMode, newModes: Set<PlayMode>, showNotif: boolean) {
@@ -301,7 +301,7 @@ export default class Binding {
             case PlayMode.autoPause:
                 this.subtitleController.autoPauseContext.onStartedShowing = undefined;
                 if (newModes.has(PlayMode.repeat)) {
-                    this.subtitleController.autoPauseContext.onWillStopShowing = (subtitle) => {
+                    this.subtitleController.autoPauseContext.onWillStopShowing = async (subtitle) => {
                         if (!isTrackSeekable(this.seekableTracks, subtitle.track)) {
                             return;
                         }
@@ -312,22 +312,22 @@ export default class Binding {
                     this.subtitleController.autoPauseContext.onWillStopShowing = undefined;
                 }
 
-                if (showNotif) this.subtitleController.notification('info.disabledAutoPause');
+                if (showNotif) this.subtitleController.notification({ locKey: 'info.disabledAutoPause' });
                 break;
             case PlayMode.condensed:
                 this.subtitleController.onNextSeekableToShow = undefined;
 
-                if (showNotif) this.subtitleController.notification('info.disabledCondensedPlayback');
+                if (showNotif) this.subtitleController.notification({ locKey: 'info.disabledCondensedPlayback' });
                 break;
             case PlayMode.fastForward:
                 this.subtitleController.onSeekableSlice = undefined;
                 this.video.playbackRate = 1;
 
-                if (showNotif) this.subtitleController.notification('info.disabledFastForwardPlayback');
+                if (showNotif) this.subtitleController.notification({ locKey: 'info.disabledFastForwardPlayback' });
                 break;
             case PlayMode.repeat:
                 if (newModes.has(PlayMode.autoPause)) {
-                    this.subtitleController.autoPauseContext.onWillStopShowing = () => {
+                    this.subtitleController.autoPauseContext.onWillStopShowing = async () => {
                         if (this.recordingMedia || this.autoPausePreference !== AutoPausePreference.atEnd) {
                             return;
                         }
@@ -338,7 +338,7 @@ export default class Binding {
                     this.subtitleController.autoPauseContext.onWillStopShowing = undefined;
                 }
 
-                if (showNotif) this.subtitleController.notification('info.disabledRepeatPlayback');
+                if (showNotif) this.subtitleController.notification({ locKey: 'info.disabledRepeatPlayback' });
                 break;
         }
     }
@@ -357,7 +357,7 @@ export default class Binding {
 
                     this.pause();
                 };
-                this.subtitleController.autoPauseContext.onWillStopShowing = (subtitle) => {
+                this.subtitleController.autoPauseContext.onWillStopShowing = async (subtitle) => {
                     if (!isTrackSeekable(this.seekableTracks, subtitle.track)) {
                         return;
                     }
@@ -377,9 +377,9 @@ export default class Binding {
                         this.seek(subtitle.start / 1000);
                     }
                 };
-                this.subtitleController.notification('info.enabledAutoPause');
+                this.subtitleController.notification({ locKey: 'info.enabledAutoPause' });
                 break;
-            case PlayMode.condensed:
+            case PlayMode.condensed: {
                 let seeking = false;
                 this.subtitleController.onNextSeekableToShow = async (subtitle) => {
                     try {
@@ -402,10 +402,11 @@ export default class Binding {
                         seeking = false;
                     }
                 };
-                this.subtitleController.notification('info.enabledCondensedPlayback');
+                this.subtitleController.notification({ locKey: 'info.enabledCondensedPlayback' });
                 break;
+            }
             case PlayMode.fastForward:
-                this.subtitleController.onSeekableSlice = async (slice: SubtitleSlice<IndexedSubtitleModel>) => {
+                this.subtitleController.onSeekableSlice = (slice: SubtitleSlice<IndexedSubtitleModel>) => {
                     const subtitlesAreSufficientlyOffsetFromNow = (subtitleEdgeTime: number | undefined) => {
                         return (
                             subtitleEdgeTime &&
@@ -435,10 +436,10 @@ export default class Binding {
                         this.video.playbackRate = 1;
                     }
                 };
-                this.subtitleController.notification('info.enabledFastForwardPlayback');
+                this.subtitleController.notification({ locKey: 'info.enabledFastForwardPlayback' });
                 break;
             case PlayMode.repeat:
-                this.subtitleController.autoPauseContext.onWillStopShowing = (subtitle) => {
+                this.subtitleController.autoPauseContext.onWillStopShowing = async (subtitle) => {
                     if (!isTrackSeekable(this.seekableTracks, subtitle.track)) {
                         return;
                     }
@@ -458,10 +459,10 @@ export default class Binding {
                     }
                 };
 
-                this.subtitleController.notification('info.enabledRepeatPlayback');
+                this.subtitleController.notification({ locKey: 'info.enabledRepeatPlayback' });
                 break;
             case PlayMode.normal:
-                this.subtitleController.notification('info.disabledAllPlayModes');
+                this.subtitleController.notification({ locKey: 'info.disabledAllPlayModes' });
                 break;
             default:
                 console.error('Unknown play mode ' + mode);
@@ -499,7 +500,7 @@ export default class Binding {
             this._bind();
             bound = true;
         } else {
-            this.canPlayListener = (event) => {
+            this.canPlayListener = () => {
                 if (!bound) {
                     this._bind();
                     bound = true;
@@ -514,7 +515,7 @@ export default class Binding {
                     src: this._registeredVideoSrc,
                 };
 
-                browser.runtime.sendMessage(command);
+                void browser.runtime.sendMessage(command);
             };
             this.video.addEventListener('canplay', this.canPlayListener);
         }
@@ -523,8 +524,8 @@ export default class Binding {
     _bind() {
         this._notifyReady();
         this._subscribe();
-        this._refreshSettings().then(() => {
-            this.videoDataSyncController.requestSubtitles();
+        void this._refreshSettings().then(() => {
+            void this.videoDataSyncController.requestSubtitles();
         });
         this.subtitleController.bind();
         this.dragController.bind(this);
@@ -563,11 +564,11 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     _subscribe() {
-        this.playListener = (event) => {
+        this.playListener = () => {
             const command: VideoToExtensionCommand<PlayFromVideoMessage> = {
                 sender: 'asbplayer-video',
                 message: {
@@ -577,7 +578,7 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
             this.pausedDueToHover = false;
 
             if (this._playModes.has(PlayMode.repeat) && this._pendingAutoRepeatTargetTimestamp > 0) {
@@ -586,7 +587,7 @@ export default class Binding {
             }
         };
 
-        this.pauseListener = (event) => {
+        this.pauseListener = () => {
             const command: VideoToExtensionCommand<PauseFromVideoMessage> = {
                 sender: 'asbplayer-video',
                 message: {
@@ -596,14 +597,14 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
 
             if (this.recordingMedia && this.recordingPostMineAction !== undefined) {
-                this._toggleRecordingMedia(this.recordingPostMineAction);
+                void this._toggleRecordingMedia(this.recordingPostMineAction);
             }
         };
 
-        this.seekedListener = (event) => {
+        this.seekedListener = () => {
             this._resetPendingAutoRepeatTargetTimestamp();
 
             const currentTimeCommand: VideoToExtensionCommand<CurrentTimeFromVideoMessage> = {
@@ -624,13 +625,13 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(currentTimeCommand);
-            browser.runtime.sendMessage(readyStateCommand);
+            void browser.runtime.sendMessage(currentTimeCommand);
+            void browser.runtime.sendMessage(readyStateCommand);
 
             this.subtitleController.autoPauseContext.clear();
         };
 
-        this.playbackRateListener = (event) => {
+        this.playbackRateListener = () => {
             const command: VideoToExtensionCommand<PlaybackRateFromVideoMessage> = {
                 sender: 'asbplayer-video',
                 message: {
@@ -641,14 +642,17 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
 
             if (this._synced && !this._playModes.has(PlayMode.fastForward)) {
-                this.subtitleController.notification('info.playbackRate', {
-                    rate: this.video.playbackRate.toFixed(1),
+                this.subtitleController.notification({
+                    locKey: 'info.playbackRate',
+                    replacements: {
+                        rate: this.video.playbackRate.toFixed(1),
+                    },
                 });
             }
-            this.mobileVideoOverlayController.updateModel();
+            void this.mobileVideoOverlayController.updateModel();
         };
 
         this.video.addEventListener('play', this.playListener);
@@ -671,7 +675,7 @@ export default class Binding {
                         this._shouldAutoResumeOnSubtitlesMouseOut &&
                         !this.subtitleController.intersects(e.clientX, e.clientY)
                     ) {
-                        this.play();
+                        void this.play();
                         this.pausedDueToHover = false;
                     }
                 };
@@ -700,7 +704,7 @@ export default class Binding {
                     return;
                 }
 
-                this.videoDataSyncController.requestSubtitles();
+                void this.videoDataSyncController.requestSubtitles();
                 this._resetSubtitles();
             };
             this.video.addEventListener('loadedmetadata', this.videoChangeListener);
@@ -725,11 +729,11 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
         }, 1000);
 
-        window.addEventListener('beforeunload', (event) => {
-            this.heartbeatInterval && clearInterval(this.heartbeatInterval);
+        window.addEventListener('beforeunload', () => {
+            if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
         });
 
         this.listener = (
@@ -746,15 +750,16 @@ export default class Binding {
                         // ignore
                         break;
                     case 'play':
-                        this.play();
+                        void this.play();
                         break;
                     case 'pause':
                         this.pause();
                         break;
-                    case 'currentTime':
+                    case 'currentTime': {
                         const currentTimeMessage = request.message as CurrentTimeToVideoMessage;
                         this.seek(currentTimeMessage.value);
                         break;
+                    }
                     case 'close':
                         // ignore
                         break;
@@ -776,27 +781,30 @@ export default class Binding {
                     }
                     // This is useful because when we kick off bulk export the side panel needs to know
                     // what subtitle to start from.
-                    case 'request-current-subtitle':
+                    case 'request-current-subtitle': {
                         const [currentSubtitle] = this.subtitleController.currentSubtitle();
                         sendResponse({
                             currentSubtitle: currentSubtitle,
                             currentSubtitleIndex: currentSubtitle?.index ?? null,
                         });
                         break;
+                    }
                     case 'start-bulk-export':
-                        this.bulkExportController.start();
+                        void this.bulkExportController.start();
                         break;
                     case 'cancel-bulk-export':
-                        this.bulkExportController.cancel();
+                        void this.bulkExportController.cancel();
                         break;
-                    case 'offset':
+                    case 'offset': {
                         const offsetMessage = request.message as OffsetToVideoMessage;
                         this.subtitleController.offset(offsetMessage.value, !offsetMessage.echo);
                         break;
-                    case 'playbackRate':
+                    }
+                    case 'playbackRate': {
                         const playbackRateMessage = request.message as PlaybackRateToVideoMessage;
                         this.video.playbackRate = playbackRateMessage.value;
                         break;
+                    }
                     case 'subtitleSettings':
                         // ignore
                         break;
@@ -807,9 +815,9 @@ export default class Binding {
                         // ignore
                         break;
                     case 'settings-updated':
-                        this._refreshSettings();
+                        void this._refreshSettings();
                         break;
-                    case 'copy-subtitle':
+                    case 'copy-subtitle': {
                         const copySubtitleMessage = request.message as CopySubtitleMessage;
 
                         if (this._synced) {
@@ -817,28 +825,33 @@ export default class Binding {
                                 copySubtitleMessage.subtitle !== undefined &&
                                 copySubtitleMessage.surroundingSubtitles !== undefined
                             ) {
-                                this._copySubtitle(copySubtitleMessage);
+                                void this._copySubtitle(copySubtitleMessage);
                             } else if (this.subtitleController.subtitles.length > 0) {
                                 const [subtitle, surroundingSubtitles] = this.subtitleController.currentSubtitle();
                                 if (subtitle !== null && surroundingSubtitles !== null) {
-                                    this._copySubtitle({ ...copySubtitleMessage, subtitle, surroundingSubtitles });
+                                    void this._copySubtitle({
+                                        ...copySubtitleMessage,
+                                        subtitle,
+                                        surroundingSubtitles,
+                                    });
                                 }
                             } else {
-                                this._toggleRecordingMedia(copySubtitleMessage.postMineAction);
+                                void this._toggleRecordingMedia(copySubtitleMessage.postMineAction);
                             }
 
-                            this.mobileVideoOverlayController.updateModel();
+                            void this.mobileVideoOverlayController.updateModel();
                         }
                         break;
+                    }
                     case 'toggle-recording':
                         if (this._synced) {
-                            this._toggleRecordingMedia(PostMineAction.showAnkiDialog);
-                            this.mobileVideoOverlayController.updateModel();
+                            void this._toggleRecordingMedia(PostMineAction.showAnkiDialog);
+                            void this.mobileVideoOverlayController.updateModel();
                         }
                         break;
                     case 'card-updated':
                     case 'card-exported':
-                    case 'card-saved':
+                    case 'card-saved': {
                         const cardMessage = request.message as
                             | CardUpdatedMessage
                             | CardExportedMessage
@@ -857,7 +870,10 @@ export default class Binding {
                                 locKey = 'info.copiedSubtitle2';
                                 break;
                         }
-                        this.subtitleController.notification(locKey, { result: request.message.cardName });
+                        this.subtitleController.notification({
+                            locKey,
+                            replacements: { result: request.message.cardName },
+                        });
                         this.ankiUiSavedState = {
                             ...cardMessage,
                             text: cardMessage.text ?? '',
@@ -872,15 +888,16 @@ export default class Binding {
                             lastAppliedTimestampIntervalToAudio: [cardMessage.subtitle.start, cardMessage.subtitle.end],
                             dialogRequestedTimestamp: this.video.currentTime * 1000,
                         };
-                        this.mobileVideoOverlayController.updateModel();
+                        void this.mobileVideoOverlayController.updateModel();
                         break;
+                    }
                     case 'card-updated-dialog':
                     case 'card-exported-dialog':
                         this.subtitleController.subtitleAnnotations.ankiCardWasModified();
                         break;
-                    case 'save-token-local':
+                    case 'save-token-local': {
                         const { track, token, status, states, applyStates } = request.message as SaveTokenLocalMessage;
-                        this.subtitleController.subtitleAnnotations.saveTokenLocal(
+                        void this.subtitleController.subtitleAnnotations.saveTokenLocal(
                             track,
                             token,
                             status,
@@ -888,19 +905,25 @@ export default class Binding {
                             applyStates
                         );
                         break;
-                    case 'dictionary-build-anki-cache-state':
+                    }
+                    case 'dictionary-build-anki-cache-state': {
                         const state = request.message as DictionaryBuildAnkiCacheStateMessage;
                         this.subtitleController.subtitleAnnotations.buildAnkiCacheStateChange(state);
                         break;
+                    }
                     case 'dictionary-build-wanikani-cache-state': {
                         const state = request.message as DictionaryBuildWaniKaniCacheStateMessage;
                         this.subtitleController.subtitleAnnotations.buildWaniKaniCacheStateChange(state);
                         break;
                     }
-                    case 'notify-error':
+                    case 'notify-error': {
                         const notifyErrorMessage = request.message as NotifyErrorMessage;
-                        this.subtitleController.notification('info.error', { message: notifyErrorMessage.message });
+                        this.subtitleController.notification({
+                            locKey: 'info.error',
+                            replacements: { message: notifyErrorMessage.message },
+                        });
                         break;
+                    }
                     case 'recording-started':
                         this.recordingState = RecordingState.started;
                         break;
@@ -925,37 +948,44 @@ export default class Binding {
                                 break;
                         }
                         break;
-                    case 'show-anki-ui':
+                    case 'show-anki-ui': {
                         const showAnkiUiMessage = request.message as ShowAnkiUiMessage;
-                        this.ankiUiController.show(this, showAnkiUiMessage);
+                        void this.ankiUiController.show(this, showAnkiUiMessage);
                         break;
-                    case 'show-card-select-ui':
+                    }
+                    case 'show-card-select-ui': {
                         const showCardSelectUiMessage = request.message as ShowCardSelectUiMessage;
-                        this.ankiUiController.showCardSelect(this, showCardSelectUiMessage);
+                        void this.ankiUiController.showCardSelect(this, showCardSelectUiMessage);
                         break;
-                    case 'show-anki-ui-after-rerecord':
+                    }
+                    case 'show-anki-ui-after-rerecord': {
                         const showAnkiUiAfterRerecordMessage = request.message as ShowAnkiUiAfterRerecordMessage;
-                        this.ankiUiController.showAfterRerecord(this, showAnkiUiAfterRerecordMessage.uiState);
+                        void this.ankiUiController.showAfterRerecord(this, showAnkiUiAfterRerecordMessage.uiState);
                         break;
+                    }
                     case 'take-screenshot':
                         if (this._synced) {
                             if (this.ankiUiController.showing) {
-                                this.ankiUiController.requestRewind(this);
+                                void this.ankiUiController.requestRewind(this);
                             } else {
-                                this._takeScreenshot();
+                                void this._takeScreenshot();
                             }
                         }
                         break;
-                    case 'screenshot-taken':
+                    case 'screenshot-taken': {
                         const screenshotTakenMessage = request.message as ScreenshotTakenMessage;
                         this.subtitleController.forceHideSubtitles = false;
                         this.mobileVideoOverlayController.forceHide = false;
                         this.controlsController.show();
 
                         if (!this.recordingMedia && screenshotTakenMessage.ankiUiState) {
-                            this.ankiUiController.showAfterRetakingScreenshot(this, screenshotTakenMessage.ankiUiState);
+                            void this.ankiUiController.showAfterRetakingScreenshot(
+                                this,
+                                screenshotTakenMessage.ankiUiState
+                            );
                         }
                         break;
+                    }
                     case 'alert':
                         // ignore
                         break;
@@ -963,7 +993,7 @@ export default class Binding {
                         this.notificationController.onClose = () => {
                             this._notifyRequestingActiveTabPermission(false);
                         };
-                        this.notificationController.show(
+                        void this.notificationController.show(
                             'activeTabPermissionRequest.title',
                             'activeTabPermissionRequest.prompt'
                         );
@@ -971,7 +1001,7 @@ export default class Binding {
                         break;
                     case 'granted-active-tab-permission':
                         if (this.notificationController.showing) {
-                            this.notificationController.show(
+                            void this.notificationController.show(
                                 'activeTabPermissionRequest.grantedTitle',
                                 'activeTabPermissionRequest.grantedPrompt'
                             );
@@ -980,7 +1010,7 @@ export default class Binding {
                     case 'load-subtitles':
                         this.showVideoDataDialog(false);
                         break;
-                    case 'start-recording-audio-with-timeout':
+                    case 'start-recording-audio-with-timeout': {
                         const startRecordingAudioWithTimeoutMessage =
                             request.message as StartRecordingAudioWithTimeoutViaCaptureStreamMessage;
 
@@ -1008,6 +1038,7 @@ export default class Binding {
                                 sendResponse(startAudioRecordingErrorResponse(e));
                             });
                         return true;
+                    }
                     case 'start-recording-audio':
                         this.currentAudioRecordingRequestId = (
                             request.message as StartRecordingAudioViaCaptureStreamMessage
@@ -1021,13 +1052,13 @@ export default class Binding {
                                 sendResponse(startAudioRecordingErrorResponse(e));
                             });
                         return true;
-                    case 'stop-recording-audio':
+                    case 'stop-recording-audio': {
                         const stopRecordingAudioMessage = request.message as StopRecordingAudioMessage;
                         this._audioRecorder
                             .stop(true)
                             .then((audioBase64) => {
                                 sendResponse({ stopped: true });
-                                this._sendAudioBase64(
+                                void this._sendAudioBase64(
                                     audioBase64,
                                     this.currentAudioRecordingRequestId!,
                                     stopRecordingAudioMessage.encodeAsMp3
@@ -1053,13 +1084,15 @@ export default class Binding {
                                 sendResponse(errorResponse);
                             });
                         return true;
-                    case 'notification-dialog':
+                    }
+                    case 'notification-dialog': {
                         const notificationDialogMessage = request.message as NotificationDialogMessage;
-                        this.notificationController.show(
+                        void this.notificationController.show(
                             notificationDialogMessage.titleLocKey,
                             notificationDialogMessage.messageLocKey
                         );
                         break;
+                    }
                 }
 
                 if ('messageId' in request.message) {
@@ -1071,7 +1104,7 @@ export default class Binding {
                         },
                         src: this._registeredVideoSrc,
                     };
-                    browser.runtime.sendMessage(ackCommand);
+                    void browser.runtime.sendMessage(ackCommand);
                 }
             }
         };
@@ -1169,7 +1202,7 @@ export default class Binding {
             this.mobileVideoOverlayController.offsetAnchor =
                 currentSettings.subtitleAlignment === 'bottom' ? OffsetAnchor.top : OffsetAnchor.bottom;
             this.mobileVideoOverlayController.bind();
-            this.mobileVideoOverlayController.updateModel();
+            void this.mobileVideoOverlayController.updateModel();
         } else {
             this.mobileVideoOverlayController.unbind();
         }
@@ -1223,7 +1256,7 @@ export default class Binding {
             this.audioVolumeChangeListener = undefined;
         }
 
-        this.audioContext?.close();
+        void this.audioContext?.close();
         this.audioContext = undefined;
 
         if (this.listener) {
@@ -1270,7 +1303,7 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
         this.ankiUiSavedState = undefined;
     }
 
@@ -1293,7 +1326,7 @@ export default class Binding {
         }
 
         if (this.copyToClipboardOnMine) {
-            navigator.clipboard.writeText(subtitle.text);
+            void navigator.clipboard.writeText(subtitle.text);
         }
 
         const mediaTimestamp = subtitleTimestampWithDelay(subtitle, this.imageDelay);
@@ -1350,7 +1383,7 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     // Public helper for controllers to reuse copy-subtitle flow (e.g., bulk export)
@@ -1383,7 +1416,7 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
         } else {
             this.ankiUiSavedState = undefined;
 
@@ -1421,7 +1454,7 @@ export default class Binding {
                 src: this._registeredVideoSrc,
             };
 
-            browser.runtime.sendMessage(command);
+            void browser.runtime.sendMessage(command);
         }
     }
 
@@ -1472,7 +1505,7 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     seek(timestamp: number) {
@@ -1495,26 +1528,28 @@ export default class Binding {
 
         try {
             await this.video.play();
-        } catch (ex) {
+        } catch {
             // Ignore exception
 
             if (this.video.readyState !== 4) {
                 // Deal with Amazon Prime player pausing in the middle of play, without loss of generality
                 return new Promise((resolve, reject) => {
-                    const listener = async (evt: Event) => {
-                        let retries = 3;
+                    const listener = () => {
+                        void (async () => {
+                            const retries = 3;
 
-                        for (let i = 0; i < retries; ++i) {
-                            try {
-                                await this.video.play();
-                                break;
-                            } catch (ex2) {
-                                console.error(ex2);
+                            for (let i = 0; i < retries; ++i) {
+                                try {
+                                    await this.video.play();
+                                    break;
+                                } catch (ex2) {
+                                    console.error(ex2);
+                                }
                             }
-                        }
 
-                        resolve(undefined);
-                        this.video.removeEventListener('canplay', listener);
+                            resolve(undefined);
+                            this.video.removeEventListener('canplay', listener);
+                        })().catch(reject);
                     };
 
                     this.video.addEventListener('canplay', listener);
@@ -1524,8 +1559,8 @@ export default class Binding {
     }
 
     _playNetflix() {
-        return new Promise((resolve, reject) => {
-            const listener = async (evt: Event) => {
+        return new Promise((resolve) => {
+            const listener = () => {
                 this.video.removeEventListener('play', listener);
                 this.video.removeEventListener('playing', listener);
                 resolve(undefined);
@@ -1547,7 +1582,7 @@ export default class Binding {
     }
 
     showVideoDataDialog(openedFromMiningCommand: boolean, fromAsbplayerId?: string) {
-        this.videoDataSyncController.show({
+        void this.videoDataSyncController.show({
             reason: openedFromMiningCommand ? VideoDataUiOpenReason.miningCommand : VideoDataUiOpenReason.userRequested,
             fromAsbplayerId,
         });
@@ -1557,7 +1592,7 @@ export default class Binding {
         const rect = this.video.getBoundingClientRect();
         const maxWidth = this.maxImageWidth;
         const maxHeight = this.maxImageHeight;
-        return await cropAndResize(maxWidth, maxHeight, rect, tabImageDataUrl);
+        return cropAndResize(maxWidth, maxHeight, rect, tabImageDataUrl);
     }
 
     async loadSubtitles(files: File[], flatten: boolean, syncWithAsbplayerId?: string) {
@@ -1585,7 +1620,7 @@ export default class Binding {
                     command: 'sync',
                     subtitles: await Promise.all(
                         files.map(async (f) => {
-                            const base64 = await bufferToBase64(await f.arrayBuffer());
+                            const base64 = bufferToBase64(await f.arrayBuffer());
 
                             return {
                                 name: f.name,
@@ -1598,11 +1633,11 @@ export default class Binding {
                 },
                 src: this._registeredVideoSrc,
             };
-            browser.runtime.sendMessage(syncMessage);
+            void browser.runtime.sendMessage(syncMessage);
         };
 
         switch (streamingSubtitleListPreference) {
-            case SubtitleListPreference.noSubtitleList:
+            case SubtitleListPreference.noSubtitleList: {
                 const reader = new SubtitleReader({
                     regexFilter: subtitleRegexFilter,
                     regexFilterTextReplacement: subtitleRegexFilterTextReplacement,
@@ -1622,7 +1657,11 @@ export default class Binding {
                 // Otherwise, sync with the target asbplayer.
 
                 const withSyncedAsbplayerOnly = syncWithAsbplayerId === undefined;
-                syncWithAsbplayerTab(withSyncedAsbplayerOnly, syncWithAsbplayerId);
+                try {
+                    await syncWithAsbplayerTab(withSyncedAsbplayerOnly, syncWithAsbplayerId);
+                } catch (error) {
+                    console.error('Failed to sync with asbplayer tab when loading subtitles:', error);
+                }
 
                 this._updateSubtitles(
                     subtitles.map((s, index) => ({
@@ -1639,8 +1678,9 @@ export default class Binding {
                     flatten ? [files[0].name] : files.map((f) => f.name)
                 );
                 break;
+            }
             case SubtitleListPreference.app:
-                syncWithAsbplayerTab(false, undefined);
+                await syncWithAsbplayerTab(false, undefined);
                 break;
         }
     }
@@ -1654,7 +1694,7 @@ export default class Binding {
             this.togglePlayMode(PlayMode.normal);
         }
 
-        let nonEmptyTrackIndex: number[] = [];
+        const nonEmptyTrackIndex: number[] = [];
         for (let i = 0; i < subtitles.length; i++) {
             if (!nonEmptyTrackIndex.includes(subtitles[i].track)) {
                 nonEmptyTrackIndex.push(subtitles[i].track);
@@ -1670,23 +1710,26 @@ export default class Binding {
             this.mobileVideoOverlayController.show();
         }
 
-        this.mobileVideoOverlayController.updateModel();
+        void this.mobileVideoOverlayController.updateModel();
 
         if (!isMobile && subtitles.length > 0) {
-            this.settings
+            void this.settings
                 .get(['streamingDisplaySubtitles', 'keyBindSet'])
                 .then(({ streamingDisplaySubtitles, keyBindSet }) => {
                     if (!streamingDisplaySubtitles && keyBindSet.toggleSubtitles.keys) {
-                        this.subtitleController.notification('info.toggleSubtitlesShortcut', {
-                            keys: keyBindSet.toggleSubtitles.keys,
+                        this.subtitleController.notification({
+                            locKey: 'info.toggleSubtitlesShortcut',
+                            replacements: {
+                                keys: keyBindSet.toggleSubtitles.keys,
+                            },
                         });
                     }
                 });
         }
 
-        shouldShowUpdateAlert().then((shouldShowUpdateAlert) => {
+        void shouldShowUpdateAlert().then((shouldShowUpdateAlert) => {
             if (shouldShowUpdateAlert) {
-                this.notificationController.updateAlert(browser.runtime.getManifest().version);
+                void this.notificationController.updateAlert(browser.runtime.getManifest().version);
             }
         });
     }
@@ -1715,7 +1758,7 @@ export default class Binding {
             },
             src,
         };
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     private _captureStream(): Promise<MediaStream> {
@@ -1826,7 +1869,7 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     private _notifyRequestingActiveTabPermission(requesting: boolean) {
@@ -1839,7 +1882,7 @@ export default class Binding {
             src: this._registeredVideoSrc,
         };
 
-        browser.runtime.sendMessage(command);
+        void browser.runtime.sendMessage(command);
     }
 
     url(start: number, end?: number) {
