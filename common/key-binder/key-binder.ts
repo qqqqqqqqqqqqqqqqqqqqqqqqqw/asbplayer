@@ -174,6 +174,11 @@ export interface KeyBinder {
         disabledGetter: () => boolean,
         capture?: boolean
     ): () => void;
+    bindSelectSubtitleTrack(
+        onSelectSubtitleTrack: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture?: boolean
+    ): () => void;
     bindAdjustSubtitlePositionOffset(
         onAdjustSubtitlePositionOffset: (event: KeyboardEvent, increase: boolean) => void,
         disabledGetter: () => boolean,
@@ -362,6 +367,32 @@ export class DefaultKeyBinder implements KeyBinder {
             }
 
             onToggleRecording(event);
+            return true;
+        };
+    }
+
+    bindSelectSubtitleTrack(
+        onSelectSubtitleTrack: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture = false
+    ) {
+        const shortcut = this.keyBindSet.selectSubtitleTrack.keys;
+
+        if (!shortcut) {
+            return () => {};
+        }
+
+        const handler = this.selectSubtitleTrackHandler(onSelectSubtitleTrack, disabledGetter);
+        return this._bind(shortcut, capture, handler);
+    }
+
+    selectSubtitleTrackHandler(onSelectSubtitleTrack: (event: KeyboardEvent) => void, disabledGetter: () => boolean) {
+        return (event: KeyboardEvent) => {
+            if (disabledGetter()) {
+                return false;
+            }
+
+            onSelectSubtitleTrack(event);
             return true;
         };
     }

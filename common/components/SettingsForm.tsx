@@ -175,6 +175,7 @@ interface Props {
     extensionSupportsTrackSpecificSettings: boolean;
     extensionSupportsSubtitlesWidthSetting: boolean;
     extensionSupportsPauseOnHover: boolean;
+    extensionSupportsPlaybackEngine: boolean;
     extensionSupportsExportCardBind: boolean;
     extensionSupportsPageSettings: boolean;
     extensionSupportsDictionary: boolean;
@@ -186,6 +187,7 @@ interface Props {
     extensionSupportsOffsetTrackSetting: boolean;
     extensionSupportsDictionaryTokenStatusDisplayAlpha: boolean;
     extensionSupportsDictionaryYomitanMecab: boolean;
+    extensionSupportsSubtitleTrackSelectorInWebApp: boolean;
     insideApp?: boolean;
     appVersion?: string;
     dictionaryProvider: DictionaryProvider;
@@ -222,10 +224,12 @@ export default function SettingsForm({
     extensionSupportsAppIntegration,
     extensionSupportsOverlay,
     extensionSupportsSidePanel,
+    extensionSupportsSubtitleTrackSelectorInWebApp,
     extensionSupportsOrderableAnkiFields,
     extensionSupportsTrackSpecificSettings,
     extensionSupportsSubtitlesWidthSetting,
     extensionSupportsPauseOnHover,
+    extensionSupportsPlaybackEngine,
     extensionSupportsExportCardBind,
     extensionSupportsPageSettings,
     extensionSupportsDictionary,
@@ -262,6 +266,7 @@ export default function SettingsForm({
     const supportsDictionaryTokenStatusDisplayAlpha =
         !extensionInstalled || extensionSupportsDictionaryTokenStatusDisplayAlpha;
     const supportsDictionaryYomitanMecab = !extensionInstalled || extensionSupportsDictionaryYomitanMecab;
+    const supportsPlaybackEngine = !extensionInstalled || extensionSupportsPlaybackEngine;
     const theme = useTheme();
     const settingsTheme = useMemo(
         () =>
@@ -542,6 +547,7 @@ export default function SettingsForm({
                         extensionInstalled={extensionInstalled}
                         extensionSupportsExportCardBind={extensionSupportsExportCardBind}
                         extensionSupportsSidePanel={extensionSupportsSidePanel}
+                        extensionSupportsSubtitleTrackSelectorInWebApp={extensionSupportsSubtitleTrackSelectorInWebApp}
                         onOpenChromeExtensionShortcuts={onOpenChromeExtensionShortcuts}
                     />
                 </TabPanel>
@@ -568,6 +574,17 @@ export default function SettingsForm({
                         extensionSupportsSeekableTrackSetting={extensionSupportsSeekableTrackSetting}
                         extensionSupportsAutoCopyableTrackSetting={extensionSupportsAutoCopyableTrackSetting}
                         extensionSupportsOffsetTrackSetting={extensionSupportsOffsetTrackSetting}
+                        supportsPlaybackEngine={supportsPlaybackEngine}
+                        onViewPlaybackModeKeyboardShortcuts={() => {
+                            setTabIndex(tabIndicesById['keyboard-shortcuts']);
+                            setTimeout(
+                                () =>
+                                    keyboardShortcutsPanelRef.current
+                                        ?.querySelector('#playback-mode-key-bindings')
+                                        ?.scrollIntoView({ behavior: 'smooth' }),
+                                0
+                            );
+                        }}
                     />
                 </TabPanel>
                 <TabPanel value={tabIndex} index={tabIndicesById['about']} tabsOrientation={tabsOrientation}>

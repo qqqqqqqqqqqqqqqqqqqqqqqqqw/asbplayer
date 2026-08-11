@@ -116,6 +116,7 @@ const SettingsPage = ({
                         extensionSupportsTrackSpecificSettings
                         extensionSupportsSubtitlesWidthSetting
                         extensionSupportsPauseOnHover
+                        extensionSupportsPlaybackEngine
                         extensionSupportsExportCardBind
                         extensionSupportsPageSettings
                         extensionSupportsDictionary
@@ -127,6 +128,7 @@ const SettingsPage = ({
                         extensionSupportsOffsetTrackSetting
                         extensionSupportsDictionaryTokenStatusDisplayAlpha
                         extensionSupportsDictionaryYomitanMecab
+                        extensionSupportsSubtitleTrackSelectorInWebApp
                         chromeKeyBinds={commands}
                         onOpenChromeExtensionShortcuts={handleOpenExtensionShortcuts}
                         onSettingsChanged={onSettingsChanged}

@@ -23,7 +23,7 @@ export class CardPublisher {
         this._settingsProvider = settingsProvider;
     }
 
-    async publish(card: CardModel, postMineAction?: PostMineAction, tabId?: number, src?: string) {
+    async publish(card: CardModel, postMineAction?: PostMineAction, tabId?: number, src?: string, noteId?: number) {
         const id = uuidv4();
         const savePromise = this._saveCardToRepository(id, card);
 
@@ -35,7 +35,7 @@ export class CardPublisher {
             if (postMineAction == PostMineAction.showAnkiDialog) {
                 this._showAnkiDialog(card, id, src, tabId);
             } else if (postMineAction == PostMineAction.updateLastCard) {
-                await this._updateLastCard(card, src, tabId);
+                await this._updateCard(card, src, tabId, noteId);
             } else if (postMineAction === PostMineAction.showUpdateCardDialog) {
                 this._showUpdateCardDialog(card, src, tabId);
             } else if (postMineAction === PostMineAction.exportCard) {
@@ -160,20 +160,35 @@ export class CardPublisher {
         void browser.runtime.sendMessage(cardExportedCommand);
     }
 
-    private async _updateLastCard(card: CardModel, src: string | undefined, tabId: number) {
+    private async _updateCard(card: CardModel, src: string | undefined, tabId: number, noteId?: number) {
         const ankiSettings = (await this._settingsProvider.get(ankiSettingsKeys)) as AnkiSettings;
         let track1Override: string | undefined;
-        try {
-            const word = await fetchLastNoteWord(ankiSettings);
-            if (word) {
-                const track1Text = extractText(card.subtitle, card.surroundingSubtitles, 0);
-                if (track1Text) {
-                    const parts = computeClozeParts(track1Text, word);
-                    if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;
+
+        // Cloze bolding derives the word from the most recently added note, so it only applies when
+        // updating that note. When a specific note is selected, the last-added word may not be its word.
+        if (noteId === undefined) {
+            try {
+                const word = await fetchLastNoteWord(ankiSettings);
+                if (word) {
+                    const track1Text = extractText(card.subtitle, card.surroundingSubtitles, 0);
+                    if (track1Text) {
+                        const parts = computeClozeParts(track1Text, word);
+                        if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;
+                    }
                 }
+            } catch {
+                // Best effort: fall back to the unmodified track 1 text
             }
-        } catch (_) {}
-        const cardName = await exportCard(card, ankiSettings, 'updateLast', track1Override);
+        }
+
+        const cardName = await exportCard(
+            card,
+            ankiSettings,
+            noteId === undefined ? 'updateLast' : 'updateSpecific',
+            undefined,
+            noteId,
+            track1Override
+        );
 
         const cardUpdatedCommand: ExtensionToVideoCommand<CardUpdatedMessage> = {
             sender: 'asbplayer-extension-to-video',

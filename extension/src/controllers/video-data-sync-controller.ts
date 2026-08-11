@@ -52,6 +52,10 @@ interface ShowOptions {
     fromAsbplayerId?: string;
 }
 
+interface RequestSubtitlesOptions {
+    readonly videoChanged: boolean;
+}
+
 const fetchDataForLanguageOnDemand = (language: string): Promise<VideoData> => {
     return new Promise((resolve) => {
         const listener = (event: Event) => {
@@ -150,16 +154,18 @@ export default class VideoDataSyncController {
         return this._openedLocation;
     }
 
-    async requestSubtitles() {
+    async requestSubtitles({ videoChanged }: RequestSubtitlesOptions) {
         if (!this._context.hasPageScript) {
             return;
         }
 
         // While the picker is open on the same location, skip refresh so
         // player events do not clobber an in-progress user selection. On a
-        // true soft-navigation, dismiss the stale picker and continue.
+        // true soft-navigation or an explicitly reported video change,
+        // dismiss the stale picker and continue.
         if (this.pickerVisible) {
-            if (this.openedLocation !== undefined && window.location.href !== this.openedLocation) {
+            const locationChanged = this.openedLocation !== undefined && window.location.href !== this.openedLocation;
+            if (locationChanged || videoChanged) {
                 this._hideAndResume();
             } else {
                 return;
@@ -256,7 +262,6 @@ export default class VideoDataSyncController {
                   suggestedName: document.title,
                   selectedSubtitle: autoSelectedTrackIds,
                   error: '',
-                  showSubSelect: true,
                   subtitles: subtitleTrackChoices,
                   defaultCheckboxState: defaultCheckboxState,
                   openedFromAsbplayerId: '',
@@ -522,7 +527,12 @@ export default class VideoDataSyncController {
         }
 
         if (!this._wasPaused) {
-            void this._context.play();
+            // This can trigger a loop of pause/play when loading subtitles from subtitle picker
+            // while the video is playing due to _playBlocker(). To avoid this, we disable mouseover pause
+            // temporarily until the play() promise resolves. This became an issue with the addition of
+            // PlaybackEngine which moved away from setIntervals() for playback semantics which exposed the core issue.
+            const enablePauseOnHover = this._context.disablePauseOnHover();
+            void this._context.play().finally(enablePauseOnHover);
         }
 
         this._wasPaused = undefined;
@@ -533,13 +543,13 @@ export default class VideoDataSyncController {
             const subtitles: SerializedSubtitleFile[] = [];
 
             for (let i = 0; i < data.length; i++) {
-                const { extension, url, language, localFile } = data[i];
+                const { extension, url, language, file } = data[i];
                 const subtitleFiles = await this._subtitlesForUrl(
                     this._defaultVideoName(this._syncedData?.basename, data[i]),
                     language,
                     extension,
-                    url,
-                    localFile
+                    url!,
+                    file !== undefined
                 );
                 if (subtitleFiles !== undefined) {
                     subtitles.push(...subtitleFiles);
@@ -565,8 +575,8 @@ export default class VideoDataSyncController {
             const subtitles: SerializedSubtitleFile[] = [];
 
             for (let i = 0; i < data.length; i++) {
-                const { name, language, extension, url, localFile } = data[i];
-                const subtitleFiles = await this._subtitlesForUrl(name, language, extension, url, localFile);
+                const { name, language, extension, url, file } = data[i];
+                const subtitleFiles = await this._subtitlesForUrl(name, language, extension, url!, file !== undefined);
                 if (subtitleFiles !== undefined) {
                     subtitles.push(...subtitleFiles);
                 }
@@ -702,7 +712,6 @@ export default class VideoDataSyncController {
         return client.updateState({
             open: true,
             isLoading: false,
-            showSubSelect: true,
             error,
             themeType: themeType,
         });

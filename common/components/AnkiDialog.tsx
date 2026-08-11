@@ -786,9 +786,11 @@ const AnkiDialog = ({
                     const parts = computeClozeParts(track1, word);
                     if (parts) track1Override = `${parts.prefix}<b>${parts.body}</b>${parts.suffix}`;
                 }
-            } catch (_) {}
+            } catch {
+                // Best effort: fall back to the unmodified track 1 text
+            }
         }
-        handleProceed('updateLast', undefined, track1Override);
+        void handleProceed('updateLast', undefined, track1Override);
     }, [settings, anki, track1, handleProceed]);
     const handleUpdateSelectedCards = useCallback(
         async (noteIds: number[]) => {
