@@ -55,6 +55,17 @@ import AnkiDialogTutorialBubble from '@project/common/components/AnkiDialogTutor
 import CardSelectView from '@project/common/components/CardSelectView';
 
 const quickSelectShortcut = isMacOs ? '⌘+⇧+Enter' : 'Alt+Shift+Enter';
+const timestampNudgeMs = 200;
+
+// Null when the field is hidden by the user's field settings
+const focusTrackField = (field: HTMLTextAreaElement | null) => {
+    if (field === null) {
+        return;
+    }
+
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+};
 
 const useStyles = makeStyles<Theme>((theme) => ({
     root: {
@@ -447,17 +458,21 @@ const AnkiDialog = ({
         settings.audioPaddingEnd,
     ]);
 
-    const handlePlayAudio = useCallback(
-        async (e: React.MouseEvent<HTMLDivElement>) => {
-            if (audioClip?.error !== undefined) {
-                return;
-            }
+    const playAudio = useCallback(() => {
+        if (audioClip === undefined || audioClip.error !== undefined) {
+            return;
+        }
 
+        audioClip.play().catch((error) => asbInfo('anki/ui', error));
+    }, [audioClip]);
+
+    const handlePlayAudio = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
             e.preventDefault();
             e.stopPropagation();
-            audioClip!.play().catch((error) => asbInfo('anki/ui', error));
+            playAudio();
         },
-        [audioClip]
+        [playAudio]
     );
 
     const handleCustomFieldChange = useCallback(
@@ -620,6 +635,29 @@ const AnkiDialog = ({
         [card.surroundingSubtitles, audioClip, onRerecord, applyTimestampIntervalToAllTracks]
     );
 
+    const nudgeTimestampInterval = useCallback(
+        (index: 0 | 1, deltaMs: number) => {
+            if (timestampInterval === undefined || timestampBoundaryInterval === undefined) {
+                return;
+            }
+
+            const [start, end] = timestampInterval;
+            const nudged = timestampInterval[index] + deltaMs;
+            const clamped =
+                index === 0
+                    ? Math.max(timestampBoundaryInterval[0], Math.min(nudged, end))
+                    : Math.min(timestampBoundaryInterval[1], Math.max(nudged, start));
+
+            if (clamped === timestampInterval[index]) {
+                return;
+            }
+
+            const newTimestampInterval = index === 0 ? [clamped, end] : [start, clamped];
+            handleTimestampIntervalChange(null, newTimestampInterval);
+        },
+        [timestampInterval, timestampBoundaryInterval, handleTimestampIntervalChange]
+    );
+
     const handleResetTimestampInterval = useCallback(() => {
         if (!initialTimestampBoundaryInterval) {
             return;
@@ -726,6 +764,8 @@ const AnkiDialog = ({
         setLastAppliedTimestampIntervalToText(undefined);
     }, []);
 
+    const track1FieldRef = useRef<HTMLTextAreaElement | null>(null);
+    const track2FieldRef = useRef<HTMLTextAreaElement | null>(null);
     const updateSpecificButtonRef = useRef<HTMLButtonElement | null>(null);
     const updateLastButtonRef = useRef<HTMLButtonElement | null>(null);
     const openInAnkiButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -806,18 +846,93 @@ const AnkiDialog = ({
     );
     const handleExport = useCallback(() => handleProceed('default'), [handleProceed]);
 
+    // Mirrored so that the listener below can be registered once instead of on every keystroke -
+    // several of these handlers change identity whenever any field's text changes
+    const shortcutHandlersRef = useRef({ playAudio, nudgeTimestampInterval, enabled: false });
+    shortcutHandlersRef.current = {
+        playAudio,
+        nudgeTimestampInterval,
+        enabled: open && !cardSelectDialogOpen && !imageDialogOpen,
+    };
+
     useEffect(() => {
         const listener = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.altKey) && e.shiftKey) {
-                if (e.key === 'Enter') {
-                    const focused = focusedButton();
-                    if (focused === undefined) {
-                        focusOnPreferredAction();
-                    } else {
-                        focused?.click();
-                    }
+            if (!e.metaKey && !e.altKey) {
+                return;
+            }
+
+            const { playAudio, nudgeTimestampInterval, enabled } = shortcutHandlersRef.current;
+
+            if (!enabled) {
+                return;
+            }
+
+            if (e.shiftKey && e.key === 'Enter') {
+                const focused = focusedButton();
+                if (focused === undefined) {
+                    focusOnPreferredAction();
+                } else {
+                    focused?.click();
+                }
+
+                return;
+            }
+
+            // AltGr reports as ctrl+alt on Windows and Linux, where it types characters that would
+            // otherwise be swallowed
+            if (e.ctrlKey) {
+                return;
+            }
+
+            // Matching on the character produced rather than on the physical key, so that the
+            // shortcuts follow the letters the user actually types on non-QWERTY layouts
+            const key = e.key.toLowerCase();
+
+            if (e.shiftKey) {
+                // Alt+Shift adjusts the start of the timestamp interval. Shift turns comma and
+                // period into angle brackets on most layouts
+                switch (key) {
+                    case ',':
+                    case '<':
+                        nudgeTimestampInterval(0, -timestampNudgeMs);
+                        break;
+                    case '.':
+                    case '>':
+                        nudgeTimestampInterval(0, timestampNudgeMs);
+                        break;
+                    default:
+                        return;
+                }
+            } else {
+                switch (key) {
+                    case 'r':
+                        playAudio();
+                        break;
+                    case '1':
+                        focusTrackField(track1FieldRef.current);
+                        break;
+                    case '2':
+                        focusTrackField(track2FieldRef.current);
+                        break;
+                    case 'm':
+                        exportButtonRef.current?.click();
+                        break;
+                    case 'u':
+                        updateLastButtonRef.current?.click();
+                        break;
+                    case ',':
+                        nudgeTimestampInterval(1, -timestampNudgeMs);
+                        break;
+                    case '.':
+                        nudgeTimestampInterval(1, timestampNudgeMs);
+                        break;
+                    default:
+                        return;
                 }
             }
+
+            e.preventDefault();
+            e.stopPropagation();
         };
         document.addEventListener('keydown', listener);
         return () => document.removeEventListener('keydown', listener);
@@ -958,6 +1073,7 @@ const AnkiDialog = ({
                                             label={t('ankiDialog.track1')}
                                             width={width}
                                             onChangeText={handleTrack1TextChange}
+                                            inputRef={track1FieldRef}
                                             selectedSubtitles={selectedSubtitles.filter((s) => s.track === 0)}
                                         />
                                     )}
@@ -967,6 +1083,7 @@ const AnkiDialog = ({
                                             label={t('ankiDialog.track2')}
                                             width={width}
                                             onChangeText={handleTrack2TextChange}
+                                            inputRef={track2FieldRef}
                                             selectedSubtitles={selectedSubtitles.filter((s) => s.track === 1)}
                                         />
                                     )}

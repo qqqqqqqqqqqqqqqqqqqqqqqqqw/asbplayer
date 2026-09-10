@@ -1,3 +1,4 @@
+import type React from 'react';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import makeStyles from '@mui/styles/makeStyles';
@@ -40,9 +41,10 @@ interface Props {
     label: string;
     onChangeText: (text: string) => void;
     selectedSubtitles: SubtitleModel[];
+    inputRef?: React.Ref<HTMLTextAreaElement>;
 }
 
-export default function SentenceField({ width, text, label, onChangeText, selectedSubtitles }: Props) {
+export default function SentenceField({ width, text, label, onChangeText, selectedSubtitles, inputRef }: Props) {
     return (
         <>
             <TextImageSet
@@ -57,6 +59,7 @@ export default function SentenceField({ width, text, label, onChangeText, select
                 maxRows={8}
                 label={label}
                 value={text}
+                inputRef={inputRef}
                 onChange={(e) => onChangeText(e.target.value)}
             />
         </>
