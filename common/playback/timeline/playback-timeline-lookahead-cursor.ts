@@ -1,8 +1,6 @@
 import type { IndexedSubtitleModel } from '@project/common';
-import PlaybackTimeline, {
-    advanceTimestampIndex,
-    firstTimestampIndex,
-} from '@project/common/playback/timeline/playback-timeline';
+import type PlaybackTimeline from '@project/common/playback/timeline/playback-timeline';
+import { advanceTimestampIndex, firstTimestampIndex } from '@project/common/playback/timeline/playback-timeline';
 
 export interface PlaybackTimelineLookaheadOptions {
     readonly lookaheadTimestampMs?: number;
@@ -51,7 +49,11 @@ export default class PlaybackTimelineLookaheadCursor<T extends IndexedSubtitleMo
         timestampMs: number,
         { lookaheadTimestampMs, includeStateChanges }: PlaybackTimelineLookaheadOptions
     ): PlaybackTimelineLookaheadResult {
-        if (timestampMs < this.timestampMs) this.reset(timestampMs);
+        if (timestampMs < this.timestampMs) {
+            const nextActionIndex = this.nextActionIndex;
+            this.reset(timestampMs);
+            this.nextActionIndex = Math.max(this.nextActionIndex, nextActionIndex);
+        }
 
         this.nextActionIndex = advanceTimestampIndex(
             this.timeline.actionIndex.actionTimestamps,

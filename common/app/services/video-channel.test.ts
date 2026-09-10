@@ -1,8 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { type Message, PlayMode } from '@project/common';
+import { PlayMode } from '@project/common';
+import type { Message } from '@project/common';
 import { defaultSettings } from '@project/common/settings';
-import VideoChannel from './video-channel';
-import { type VideoProtocol, type VideoProtocolMessage } from './video-protocol';
+import VideoChannel from '@project/common/app/services/video-channel';
+import type { VideoProtocol, VideoProtocolMessage } from '@project/common/app/services/video-protocol';
 
 class TestVideoProtocol implements VideoProtocol {
     readonly sent: Message[] = [];
@@ -147,5 +148,51 @@ describe('VideoChannel playback intents', () => {
             { value: 1, echo: true },
             { value: 2, echo: false },
         ]);
+    });
+
+    it('replays the latest authoritative playback state to late subscribers', () => {
+        const protocol = new TestVideoProtocol();
+        const channel = new VideoChannel(protocol);
+        const received: unknown[] = [];
+
+        const state = {
+            command: 'playbackState' as const,
+            timestampMs: 1234,
+            showingSubtitleIndexes: [2, 5],
+            hiddenSubtitleIndexes: [5],
+            paused: true,
+        };
+        protocol.receive(state);
+
+        channel.onPlaybackState((latestState) => received.push(latestState));
+        expect(received).toEqual([state]);
+        expect(channel.currentTime).toBe(1.234);
+
+        protocol.receive({ ...state, timestampMs: 1500 });
+        expect(received).toEqual([state, { ...state, timestampMs: 1500 }]);
+    });
+
+    it('applies playback states in transport order', () => {
+        const protocol = new TestVideoProtocol();
+        const channel = new VideoChannel(protocol);
+        const received: number[] = [];
+        channel.onPlaybackState((state) => received.push(state.timestampMs));
+
+        protocol.receive({
+            command: 'playbackState',
+            timestampMs: 1000,
+            showingSubtitleIndexes: [],
+            paused: false,
+        });
+        protocol.receive({
+            command: 'playbackState',
+            timestampMs: 900,
+            showingSubtitleIndexes: [],
+            paused: false,
+        });
+
+        expect(received).toEqual([1000, 900]);
+        expect(channel.currentTime).toBe(0.9);
+        channel.close();
     });
 });

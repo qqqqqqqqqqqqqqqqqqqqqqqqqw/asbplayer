@@ -10,10 +10,20 @@
             }
         },
         {
+            "key": "crunchyroll",
+            "host": "(www\\.)?crunchyroll\\.com",
+            "pageScript": "crunchyroll-page.js",
+            "syncAllowedAtPath": "watch",
+            "autoSync": {
+                "enabled": true
+            }
+        },
+        {
             "key": "youtube",
             "host": "(m|www)\\.youtube\\.com",
             "pageScript": "youtube-page.js",
             "syncAllowedAtPath": "watch|shorts|embed",
+            "preferredVideoElementSelector": "#movie_player video",
             "autoSync": {
                 "enabled": true
             }
@@ -203,8 +213,8 @@
         },
         {
             "key": "cijapanese",
-            "host": "cijapanese\\.com",
-            "pageScript": "cijapanese-page.js",
+            "host": "nijapanese\\.com",
+            "pageScript": "nijapanese-page.js",
             "syncAllowedAtPath": "video",
             "autoSync": {
                 "enabled": true

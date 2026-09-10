@@ -1,6 +1,7 @@
-import { SubtitleModel } from '../src/model';
+import type { SubtitleModel } from '@project/common/src/model';
 import hotkeys from 'hotkeys-js';
-import { isTrackSeekable, KeyBindSet, SeekableTracks, TokenStatus } from '../settings/settings';
+import type { KeyBindSet, SeekableTracks, TokenStatus } from '@project/common/settings/settings';
+import { isTrackSeekable } from '@project/common/settings/settings';
 
 export function adjacentSubtitle(
     forward: boolean,
@@ -166,6 +167,16 @@ export interface KeyBinder {
     ): () => void;
     bindToggleRepeat(
         onToggleRepeat: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture?: boolean
+    ): () => void;
+    bindCycleAutoPauseResumeMode(
+        onCycleAutoPauseResumeMode: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture?: boolean
+    ): () => void;
+    bindToggleSubtitleVisibility(
+        onToggleSubtitleVisibility: (event: KeyboardEvent) => void,
         disabledGetter: () => boolean,
         capture?: boolean
     ): () => void;
@@ -1007,6 +1018,44 @@ export class DefaultKeyBinder implements KeyBinder {
             }
 
             onToggleRepeat(event);
+            return true;
+        };
+
+        return this._bind(shortcut, capture, handler);
+    }
+
+    bindCycleAutoPauseResumeMode(
+        onCycleAutoPauseResumeMode: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture = false
+    ) {
+        const shortcut = this.keyBindSet.cycleAutoPauseResumeMode.keys;
+
+        const handler = (event: KeyboardEvent) => {
+            if (disabledGetter()) {
+                return false;
+            }
+
+            onCycleAutoPauseResumeMode(event);
+            return true;
+        };
+
+        return this._bind(shortcut, capture, handler);
+    }
+
+    bindToggleSubtitleVisibility(
+        onToggleSubtitleVisibility: (event: KeyboardEvent) => void,
+        disabledGetter: () => boolean,
+        capture = false
+    ) {
+        const shortcut = this.keyBindSet.toggleSubtitleVisibility.keys;
+
+        const handler = (event: KeyboardEvent) => {
+            if (disabledGetter()) {
+                return false;
+            }
+
+            onToggleSubtitleVisibility(event);
             return true;
         };
 

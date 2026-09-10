@@ -8,10 +8,10 @@ import type {
     SubtitleSettings,
     TokenState,
     TokenStatus,
-} from '../settings/settings';
-import type { GlobalState, OnlineSubtitleSourceConfig } from '../global-state';
-import type { DictionaryStatisticsSnapshot } from '../dictionary-statistics';
-import {
+} from '@project/common/settings/settings';
+import type { GenericParseType, GlobalState, OnlineSubtitleSourceConfig } from '@project/common/global-state';
+import type { DictionaryStatisticsSnapshot } from '@project/common/dictionary-statistics';
+import type {
     RectModel,
     SubtitleModel,
     SubtitleTrack,
@@ -29,14 +29,14 @@ import {
     AnkiExportMode,
     BrowserFeatures,
     IndexedSubtitleModel,
-} from './model';
-import { AsbPlayerToVideoCommandV2 } from './command';
-import {
+} from '@project/common/src/model';
+import type { AsbPlayerToVideoCommandV2 } from '@project/common/src/command';
+import type {
     DictionaryLocalTokenInput,
     DictionaryTokenKey,
     DictionaryTokenRecord,
     DictionaryRecordUpdateInput,
-} from '../dictionary-db/dictionary-db';
+} from '@project/common/dictionary-db/dictionary-db';
 
 export interface Message {
     readonly command: string;
@@ -390,6 +390,14 @@ export interface CurrentTimeFromVideoMessage extends Message {
     readonly echo: boolean;
 }
 
+export interface PlaybackStateFromVideoMessage extends Message {
+    readonly command: 'playbackState';
+    readonly timestampMs: number;
+    readonly showingSubtitleIndexes: readonly number[];
+    readonly hiddenSubtitleIndexes?: readonly number[];
+    readonly paused: boolean;
+}
+
 export interface CurrentTimeToVideoMessage extends Message {
     readonly command: 'currentTime';
     readonly value: number;
@@ -553,6 +561,11 @@ export interface VideoDataUiBridgeOpenFileMessage extends Message {
 export interface VideoDataUiBridgeSetOnlineSubtitleSourceConfigMessage extends Message {
     readonly command: 'setOnlineSubtitleSourceConfig';
     readonly state: Partial<OnlineSubtitleSourceConfig>;
+}
+
+export interface VideoDataUiBridgeSetGenericSubtitleParserMessage extends Message {
+    readonly command: 'setGenericSubtitleParser';
+    readonly parse: GenericParseType;
 }
 
 export interface CropAndResizeMessage extends Message, ImageCaptureParams {
@@ -796,6 +809,7 @@ export interface NotifyErrorMessage extends Message {
 
 export interface RequestMobileOverlayModelMessage extends Message {
     readonly command: 'request-mobile-overlay-model';
+    readonly overlayInstanceId: string;
 }
 
 export interface UpdateMobileOverlayModelMessage extends Message {
@@ -1136,5 +1150,10 @@ export interface MoveStatisticsOverlayMessage extends Message {
 
 export interface CloseStatisticsOverlayMessage extends Message {
     readonly command: 'close-statistics-overlay';
+    readonly mediaId: string;
+}
+
+export interface ElementExistsStatisticsOverlayMessage extends Message {
+    readonly command: 'element-exists';
     readonly mediaId: string;
 }

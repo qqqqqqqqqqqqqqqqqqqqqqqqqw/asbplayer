@@ -1,7 +1,11 @@
+import { asbError } from '@project/common/util';
+import type { PlaybackTimelineTransitionCause } from '@project/common/playback/plan/playback-plan-executor';
+
 export interface TimingDriverCallbacks {
     onTime(timestampMs: number, options: { lookaheadTimestampMs?: number }): Promise<void>;
     onPlaybackStarted(): Promise<void>;
     onPlaybackPaused(): void;
+    onSeekStarted(cause: PlaybackTimelineTransitionCause): void;
     onDiscontinuity(timestampMs: number): void;
     onCancel(options: { preserveExpectedDiscontinuity: boolean }): void;
     onError(error: unknown): void;
@@ -34,6 +38,7 @@ export interface TimingDriver {
     frameTimeMs: () => number;
     playbackRate: () => number;
     durationMs(): number;
+    onDurationChange: () => void;
     paused(): boolean;
 }
 
@@ -156,7 +161,7 @@ export default class TimingUpdateQueue {
         try {
             this.callbacks.onError(error);
         } catch (callbackError) {
-            console.error('[asbplayer/playback] Timing update error handler failed', { error, callbackError });
+            asbError('playback/timing', 'Timing update error handler failed', { error, callbackError });
         }
     }
 }

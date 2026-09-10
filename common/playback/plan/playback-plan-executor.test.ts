@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
-import { AutoPausePreference, type IndexedSubtitleModel, PlayMode } from '@project/common';
+import { AutoPausePreference, PlayMode } from '@project/common';
+import type { IndexedSubtitleModel } from '@project/common';
 import { makePlaybackPlanInput, makeSubtitle } from '@project/common/playback/playback-test-utils';
 import { buildPlaybackPlan } from '@project/common/playback/plan/playback-plan';
-import PlaybackPlanExecutor, {
-    type PlaybackPlanExecutorCallbacks,
-} from '@project/common/playback/plan/playback-plan-executor';
+import PlaybackPlanExecutor from '@project/common/playback/plan/playback-plan-executor';
+import type { PlaybackPlanExecutorCallbacks } from '@project/common/playback/plan/playback-plan-executor';
 
 const makePlan = (
     modes: PlayMode[],
@@ -28,7 +28,6 @@ function executorHarness(
     const seeks: number[] = [];
     const corrections: number[] = [];
     const rates: number[] = [];
-    const showing: (readonly IndexedSubtitleModel[])[] = [];
     const plays: number[] = [];
     let paused = false;
     const executor = new PlaybackPlanExecutor(plan, timestampMs, {
@@ -48,7 +47,6 @@ function executorHarness(
             corrections.push(targetTimestampMs);
             return { seekIssued: true };
         },
-        showingSubtitlesChanged: (subtitles) => showing.push(subtitles),
         ...callbackOverrides,
     });
     executor.initializePlaybackRate(timestampMs);
@@ -58,13 +56,17 @@ function executorHarness(
         seeks,
         corrections,
         rates,
-        showing,
         plays,
         pauseMedia: () => {
             paused = true;
         },
         resume: () => {
             paused = false;
+        },
+        completeInternalSeek: (timestampMs: number) => executor.handleDiscontinuity(timestampMs),
+        userSeek: (timestampMs: number) => {
+            executor.cancelPendingOperations({ preserveExpectedDiscontinuity: false });
+            executor.handleDiscontinuity(timestampMs);
         },
     };
 }
@@ -278,6 +280,58 @@ describe('PlaybackPlanExecutor', () => {
         expect(harness.corrections).toEqual([1000, 1999]);
     });
 
+    it('does not repeat an auto-pause when its correction lands microscopically before the boundary', async () => {
+        const harness = executorHarness([PlayMode.autoPause], 1500);
+
+        await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
+        harness.executor.handleDiscontinuity(1998.999);
+        harness.resume();
+        await harness.executor.playbackStarted();
+        await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
+
+        expect(harness.pauses).toHaveLength(1);
+        expect(harness.corrections).toEqual([1999]);
+    });
+
+    it('does not repeat an auto-pause when an imprecise correction lands before the subtitle', async () => {
+        const harness = executorHarness([PlayMode.autoPause], 1500);
+
+        await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
+        harness.executor.handleDiscontinuity(500);
+        harness.resume();
+        await harness.executor.playbackStarted();
+        await harness.executor.update(500, { lookaheadTimestampMs: undefined });
+        await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
+
+        expect(harness.pauses).toHaveLength(1);
+        expect(harness.corrections).toEqual([1999]);
+    });
+
+    it('resets actions at the actual timestamp when an internal seek misses by more than three seconds', async () => {
+        const first = makeSubtitle({ start: 12_000, end: 13_000, originalStart: 12_000, originalEnd: 13_000 });
+        const second = makeSubtitle({
+            start: 60_000,
+            end: 61_000,
+            originalStart: 60_000,
+            originalEnd: 61_000,
+            index: 1,
+        });
+        const harness = executorHarness([PlayMode.autoPause], 60_500, {
+            subtitles: [first, second],
+            durationMs: 70_000,
+            autoPausePreference: AutoPausePreference.atEnd,
+        });
+
+        await harness.executor.update(61_000, { lookaheadTimestampMs: undefined });
+        expect(harness.executor.handleDiscontinuity(0)).toEqual({ cause: 'failed-internal-seek' });
+        harness.resume();
+        await harness.executor.playbackStarted();
+        await harness.executor.update(13_000, { lookaheadTimestampMs: undefined });
+
+        expect(harness.pauses).toHaveLength(2);
+        expect(harness.corrections).toEqual([60_999, 12_999]);
+    });
+
     it('treats overlapping subtitles as one auto-pause and repeat block', async () => {
         const first = makeSubtitle({ end: 3000, originalEnd: 3000 });
         const second = makeSubtitle({ start: 2000, end: 4000, originalStart: 2000, originalEnd: 4000, index: 1 });
@@ -290,13 +344,77 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(4000, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(3999, { lookaheadTimestampMs: undefined });
 
         expect(harness.pauses).toHaveLength(2);
         expect(harness.corrections).toEqual([3999, 3999]);
         expect(harness.seeks).toEqual([1000]);
     });
+
+    it('separates playback-mode subtitles from all display subtitles showing at an automatic pause', async () => {
+        const playbackSubtitle = makeSubtitle({ text: 'read me', track: 0, index: 0 });
+        const displayOnlySubtitle = makeSubtitle({ text: 'translation', track: 1, index: 1 });
+        const pausedWith: (readonly IndexedSubtitleModel[])[] = [];
+        const showingAtPause: (readonly IndexedSubtitleModel[])[] = [];
+        const harness = executorHarness(
+            [PlayMode.autoPause],
+            0,
+            {
+                subtitles: [playbackSubtitle],
+                displaySubtitles: [playbackSubtitle, displayOnlySubtitle],
+                autoPausePreference: AutoPausePreference.atStart,
+            },
+            {
+                pause: ({ playbackModeSubtitlesAtPause, showingSubtitlesAtPause }) => {
+                    pausedWith.push(playbackModeSubtitlesAtPause);
+                    showingAtPause.push(showingSubtitlesAtPause);
+                },
+            }
+        );
+
+        await harness.executor.update(1000, {});
+
+        expect(pausedWith).toEqual([[playbackSubtitle]]);
+        expect(showingAtPause).toEqual([[playbackSubtitle, displayOnlySubtitle]]);
+    });
+
+    it.each([
+        {
+            name: 'before a negatively offset start',
+            autoPausePreference: AutoPausePreference.atStart,
+            subtitleTriggerStartOffset: -250,
+            initialTimestampMs: 500,
+            updateTimestampMs: 1000,
+        },
+        {
+            name: 'after a positively offset end',
+            autoPausePreference: AutoPausePreference.atEnd,
+            subtitleTriggerEndOffset: 500,
+            initialTimestampMs: 1500,
+            updateTimestampMs: 2500,
+        },
+    ])(
+        'reports the triggering subtitle when pausing $name',
+        async ({ autoPausePreference, initialTimestampMs, updateTimestampMs, ...offsets }) => {
+            const playbackSubtitle = makeSubtitle({ text: 'read me' });
+            const pausedWith: (readonly IndexedSubtitleModel[])[] = [];
+            const harness = executorHarness(
+                [PlayMode.autoPause],
+                initialTimestampMs,
+                {
+                    subtitles: [playbackSubtitle],
+                    autoPausePreference,
+                    ...offsets,
+                },
+                { pause: ({ playbackModeSubtitlesAtPause }) => pausedWith.push(playbackModeSubtitlesAtPause) }
+            );
+
+            await harness.executor.update(updateTimestampMs, {});
+
+            expect(pausedWith).toEqual([[playbackSubtitle]]);
+        }
+    );
 
     it('clamps playback offsets to the gap between neighboring subtitles', () => {
         const first = makeSubtitle();
@@ -344,7 +462,7 @@ describe('PlaybackPlanExecutor', () => {
 
         expect(harness.pauses).toHaveLength(1);
         expect(harness.corrections).toEqual([1999]);
-        expect(harness.showing.at(-1)).toEqual([subtitle]);
+        expect(harness.executor.showingSubtitlesAt(1999)).toEqual([subtitle]);
     });
 
     it('executes an auto-pause action when the next frame is predicted to cross it', async () => {
@@ -378,7 +496,7 @@ describe('PlaybackPlanExecutor', () => {
         const harness = executorHarness([PlayMode.repeat], 1500, { repeatCountPreference: 2 });
 
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
 
         expect(harness.pauses).toEqual([]);
@@ -395,11 +513,11 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
 
         expect(harness.pauses).toHaveLength(3);
@@ -416,7 +534,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
@@ -437,13 +555,13 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
 
         expect(harness.pauses).toHaveLength(3);
@@ -463,7 +581,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(3500, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.update(3500, { lookaheadTimestampMs: undefined });
@@ -485,7 +603,11 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
         await harness.executor.update(3000, { lookaheadTimestampMs: undefined });
 
-        expect(harness.showing).toEqual([[longer, shorter], [longer], []]);
+        expect([
+            harness.executor.showingSubtitlesAt(1000),
+            harness.executor.showingSubtitlesAt(2000),
+            harness.executor.showingSubtitlesAt(3000),
+        ]).toEqual([[longer, shorter], [longer], []]);
     });
 
     it.each([
@@ -504,13 +626,13 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
 
         expect(harness.seeks).toEqual(queued ? [] : [1000]);
-        expect(harness.showing.at(-1)).toEqual([subtitle]);
+        expect(harness.executor.showingSubtitlesAt(1999)).toEqual([subtitle]);
 
         if (queued) {
             harness.resume();
             await harness.executor.playbackStarted();
             expect(harness.seeks).toEqual([1000]);
-            expect(harness.showing.at(-1)).toEqual([subtitle]);
+            expect(harness.executor.showingSubtitlesAt(1000)).toEqual([subtitle]);
         }
     });
 
@@ -525,11 +647,11 @@ describe('PlaybackPlanExecutor', () => {
 
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         expect(harness.rates).toEqual([1.25]);
-        expect(harness.showing.at(-1)).toEqual([subtitle]);
+        expect(harness.executor.showingSubtitlesAt(1999)).toEqual([subtitle]);
 
         await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
         expect(harness.rates).toEqual([1.25, 2.5]);
-        expect(harness.showing.at(-1)).toEqual([]);
+        expect(harness.executor.showingSubtitlesAt(2000)).toEqual([]);
     });
 
     it('starts condensed playback on the first millisecond without a visible subtitle', async () => {
@@ -545,11 +667,11 @@ describe('PlaybackPlanExecutor', () => {
 
         await harness.executor.update(1999, { lookaheadTimestampMs: undefined });
         expect(harness.seeks).toEqual([]);
-        expect(harness.showing.at(-1)).toEqual([first]);
+        expect(harness.executor.showingSubtitlesAt(1999)).toEqual([first]);
 
         await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
         expect(harness.seeks).toEqual([3999]);
-        expect(harness.showing.at(-1)).toEqual([]);
+        expect(harness.executor.showingSubtitlesAt(2000)).toEqual([]);
     });
 
     it('executes a bounded repeat immediately when the end action does not pause', async () => {
@@ -562,7 +684,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2298, { lookaheadTimestampMs: undefined });
         expect(harness.seeks).toEqual([]);
         await harness.executor.update(2299, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(800, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(800);
         await harness.executor.update(2299, { lookaheadTimestampMs: undefined });
 
         expect(harness.seeks).toEqual([800]);
@@ -581,7 +703,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
         expect(harness.seeks).toEqual([1000]);
 
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2000, { lookaheadTimestampMs: undefined });
 
         expect(harness.seeks).toEqual([1000, 3999]);
@@ -637,7 +759,7 @@ describe('PlaybackPlanExecutor', () => {
 
         for (let repeat = 0; repeat < 3; repeat++) {
             await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
-            harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+            harness.completeInternalSeek(1000);
         }
 
         expect(harness.seeks).toEqual([1000, 1000, 1000]);
@@ -661,7 +783,7 @@ describe('PlaybackPlanExecutor', () => {
         });
 
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         await harness.executor.update(4100, { lookaheadTimestampMs: undefined });
 
@@ -672,7 +794,7 @@ describe('PlaybackPlanExecutor', () => {
         const harness = executorHarness([PlayMode.repeat], 0, { repeatCountPreference: 1 });
 
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         harness.executor.replacePlan(makePlan([PlayMode.normal]), 1500);
         harness.executor.replacePlan(makePlan([PlayMode.repeat], { repeatCountPreference: 1 }), 1500);
@@ -685,7 +807,7 @@ describe('PlaybackPlanExecutor', () => {
         const harness = executorHarness([PlayMode.repeat], 0, { repeatCountPreference: 1 });
 
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         harness.executor.replacePlan(
             makePlan([PlayMode.repeat], { repeatCountPreference: 1, playbackRate: 1.5 }),
@@ -706,7 +828,7 @@ describe('PlaybackPlanExecutor', () => {
 
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
 
         expect(harness.seeks).toEqual([1000]);
@@ -726,10 +848,10 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(4100, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
 
-        expect(harness.showing).toEqual([[earlier, later], [later], [earlier]]);
+        expect(harness.executor.showingSubtitlesAt(2500)).toEqual([earlier, later]);
         expect(harness.pauses).toHaveLength(1);
         expect(harness.corrections).toEqual([3999]);
     });
@@ -828,7 +950,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         harness.resume();
         await expect(harness.executor.playbackStarted()).rejects.toThrow('seek failed');
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.userSeek(999);
         harness.resume();
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
 
@@ -844,10 +966,10 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
 
-        harness.executor.reset(1500, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(1500);
         harness.resume();
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         harness.resume();
@@ -867,7 +989,7 @@ describe('PlaybackPlanExecutor', () => {
 
         await condensed.executor.update(2100, { lookaheadTimestampMs: undefined });
         await fastForward.executor.update(3000, { lookaheadTimestampMs: undefined });
-        fastForward.executor.reset(4500, { includeAtTimestamp: true, cause: 'user-seek' });
+        fastForward.userSeek(4500);
         await fastForward.executor.update(4500, { lookaheadTimestampMs: undefined });
 
         expect(condensed.seeks).toEqual([3999]);
@@ -921,7 +1043,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
         expect(events).toEqual(['seek:3750', 'pause']);
 
-        harness.executor.reset(3750, { includeAtTimestamp: false, cause: 'internal-seek' });
+        harness.completeInternalSeek(3750);
         harness.resume();
         await harness.executor.update(3751, { lookaheadTimestampMs: undefined });
 
@@ -1152,7 +1274,7 @@ describe('PlaybackPlanExecutor', () => {
         });
 
         await harness.executor.update(2100, { lookaheadTimestampMs: undefined });
-        harness.executor.reset(3000, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(3000);
         harness.resume();
         await harness.executor.playbackStarted();
 
@@ -1250,7 +1372,7 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2500, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.playbackStarted();
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(1000, { lookaheadTimestampMs: undefined });
         harness.resume();
         await harness.executor.update(2500, { lookaheadTimestampMs: undefined });
@@ -1278,13 +1400,13 @@ describe('PlaybackPlanExecutor', () => {
         await harness.executor.update(2500, { lookaheadTimestampMs: undefined });
         expect(harness.seeks).toEqual([1000]);
 
-        harness.executor.reset(1000, { includeAtTimestamp: true, cause: 'internal-seek' });
+        harness.completeInternalSeek(1000);
         await harness.executor.update(2500, { lookaheadTimestampMs: undefined });
 
         expect(harness.seeks).toEqual([1000, 2999]);
     });
 
-    it('reconciles visible subtitles on a user seek without firing crossed playback actions', async () => {
+    it('does not fire crossed playback actions after a user seek', async () => {
         const first = makeSubtitle();
         const second = makeSubtitle({ start: 4000, end: 5000, originalStart: 4000, originalEnd: 5000, index: 1 });
         const harness = executorHarness([PlayMode.autoPause], 0, {
@@ -1293,24 +1415,49 @@ describe('PlaybackPlanExecutor', () => {
             autoPausePreference: AutoPausePreference.atStartAndEnd,
         });
 
-        harness.executor.reset(4000, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(4000);
         await harness.executor.update(4100, { lookaheadTimestampMs: undefined });
 
-        expect(harness.showing.at(-1)).toEqual([second]);
+        expect(harness.executor.showingSubtitlesAt(4100)).toEqual([second]);
         expect(harness.pauses).toEqual([]);
         expect(harness.corrections).toEqual([]);
     });
 
-    it('does not report a visibility change when an equivalent plan retains the same subtitle indexes', () => {
+    it('reconciles playback mode and rate at a public timestamp', () => {
+        const second = makeSubtitle({ start: 4000, end: 5000, originalStart: 4000, originalEnd: 5000, index: 1 });
+        const harness = executorHarness([PlayMode.fastForward], 1500, {
+            subtitles: [makeSubtitle(), second],
+        });
+
+        harness.executor.reconcileAt(3000, { forcePlaybackRate: false });
+        expect(harness.executor.isFastForwarding).toBe(true);
+        expect(harness.rates).toEqual([1.25, 2.5]);
+
+        harness.executor.reconcileAt(4500, { forcePlaybackRate: false });
+        expect(harness.executor.isFastForwarding).toBe(false);
+        expect(harness.rates).toEqual([1.25, 2.5, 1.25]);
+    });
+
+    it('reapplies an unchanged playback rate when reconciliation is forced', () => {
+        const harness = executorHarness([PlayMode.fastForward], 1500);
+
+        harness.executor.reconcileAt(1500, { forcePlaybackRate: false });
+        expect(harness.rates).toEqual([1.25]);
+
+        harness.executor.reconcileAt(1500, { forcePlaybackRate: true });
+        expect(harness.rates).toEqual([1.25, 1.25]);
+    });
+
+    it('keeps the same visible subtitles after an equivalent plan replacement', () => {
         const harness = executorHarness([PlayMode.normal], 1500);
-        const initiallyShowing = harness.showing[0];
+        const initiallyShowing = harness.executor.showingSubtitlesAt(1500);
 
         harness.executor.replacePlan(makePlan([PlayMode.normal], { playbackRate: 1.5 }), 1500);
 
-        expect(harness.showing).toEqual([initiallyShowing]);
+        expect(harness.executor.showingSubtitlesAt(1500)).toEqual(initiallyShowing);
     });
 
-    it('reports a changed subtitle when its index is retained by a replacement plan', () => {
+    it('updates visible subtitle records after a replacement plan', () => {
         const oldSubtitle = makeSubtitle({ text: 'old text', index: 12 });
         const newSubtitle = makeSubtitle({ text: 'new text', index: 12 });
         const harness = executorHarness([PlayMode.normal], 1500, {
@@ -1323,7 +1470,7 @@ describe('PlaybackPlanExecutor', () => {
             1500
         );
 
-        expect(harness.showing.at(-1)).toEqual([newSubtitle]);
+        expect(harness.executor.showingSubtitlesAt(1500)).toEqual([newSubtitle]);
     });
 
     it('applies the fast-forward rate immediately after a user seek into a qualifying gap', () => {
@@ -1332,7 +1479,7 @@ describe('PlaybackPlanExecutor', () => {
             subtitles: [makeSubtitle(), second],
         });
 
-        harness.executor.reset(3000, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(3000);
 
         expect(harness.rates).toEqual([1.25, 2.5]);
         expect(harness.seeks).toEqual([]);
@@ -1354,7 +1501,7 @@ describe('PlaybackPlanExecutor', () => {
         const harness = executorHarness([PlayMode.fastForward], 1500);
         harness.pauseMedia();
 
-        harness.executor.reset(3000, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(3000);
 
         expect(harness.executor.isFastForwarding).toBe(true);
     });
@@ -1373,7 +1520,7 @@ describe('PlaybackPlanExecutor', () => {
             subtitles: [makeSubtitle(), second],
         });
 
-        harness.executor.reset(3100, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(3100);
 
         expect(harness.rates).toEqual([2.5]);
     });
@@ -1545,7 +1692,7 @@ describe('PlaybackPlanExecutor', () => {
         const harness = executorHarness([PlayMode.condensed], 1500, { subtitles, durationMs: 9000 });
 
         harness.pauseMedia();
-        harness.executor.reset(2500, { includeAtTimestamp: true, cause: 'user-seek' });
+        harness.userSeek(2500);
         harness.resume();
         await harness.executor.playbackStarted();
         await harness.executor.update(2600, { lookaheadTimestampMs: undefined });

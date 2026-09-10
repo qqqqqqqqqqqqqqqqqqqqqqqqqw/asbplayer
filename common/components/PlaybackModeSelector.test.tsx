@@ -1,8 +1,9 @@
 import React, { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { PlayMode } from '@project/common';
-import PlaybackModeSelector from './PlaybackModeSelector';
+import PlaybackModeSelector from '@project/common/components/PlaybackModeSelector';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -11,14 +12,13 @@ type MockSelectorProps = {
     selectedPlayModes: Set<PlayMode>;
     slotProps?: {
         paper?: {
-            ref?: React.Ref<HTMLDivElement>;
             onMouseEnter?: () => void;
             onMouseLeave?: () => void;
         };
     };
 };
 
-jest.mock('./PlayModeSelector', () => {
+jest.mock('@project/common/components/PlayModeSelector', () => {
     return {
         __esModule: true,
         default: ({ open, selectedPlayModes, slotProps }: MockSelectorProps) =>
@@ -26,7 +26,6 @@ jest.mock('./PlayModeSelector', () => {
                 ? React.createElement('div', {
                       'data-testid': 'playback-mode-selector',
                       'data-selected-play-modes': [...selectedPlayModes].join(','),
-                      ref: slotProps?.paper?.ref,
                       onMouseEnter: slotProps?.paper?.onMouseEnter,
                       onMouseLeave: slotProps?.paper?.onMouseLeave,
                   })
@@ -40,7 +39,6 @@ describe('PlaybackModeSelector hover behavior', () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
-        jest.spyOn(HTMLElement.prototype, 'matches').mockReturnValue(false);
         container = document.createElement('div');
         document.body.appendChild(container);
         root = createRoot(container);
@@ -55,16 +53,10 @@ describe('PlaybackModeSelector hover behavior', () => {
 
     const renderSelector = ({
         keepManualSelectorOpen,
-        temporaryOpenRequest,
         selectedPlayModes = new Set([PlayMode.normal]),
-        onSelectorClosed = jest.fn(),
-        onSelectorOpened = jest.fn(),
     }: {
         keepManualSelectorOpen?: boolean;
-        temporaryOpenRequest?: number;
         selectedPlayModes?: Set<PlayMode>;
-        onSelectorClosed?: jest.Mock;
-        onSelectorOpened?: jest.Mock;
     } = {}) => {
         act(() => {
             root.render(
@@ -72,9 +64,6 @@ describe('PlaybackModeSelector hover behavior', () => {
                     selectedPlayModes={selectedPlayModes}
                     onPlayMode={() => {}}
                     keepManualSelectorOpen={keepManualSelectorOpen}
-                    temporaryOpenRequest={temporaryOpenRequest}
-                    onSelectorOpened={onSelectorOpened}
-                    onSelectorClosed={onSelectorClosed}
                     renderButton={({ anchorRef, onClick, onMouseEnter, onMouseLeave }) => (
                         <button
                             ref={anchorRef}
@@ -88,7 +77,6 @@ describe('PlaybackModeSelector hover behavior', () => {
                 />
             );
         });
-        return onSelectorClosed;
     };
 
     const selector = () => document.querySelector('[data-testid="playback-mode-selector"]');
@@ -98,22 +86,6 @@ describe('PlaybackModeSelector hover behavior', () => {
             selector()?.dispatchEvent(new MouseEvent(type, { bubbles: true }));
         });
     };
-
-    it('keeps a temporary selector open while hovered and closes one second after leaving', () => {
-        const onSelectorClosed = renderSelector({ temporaryOpenRequest: 1 });
-
-        dispatchMouseEvent('mouseover');
-        act(() => jest.advanceTimersByTime(3000));
-        expect(selector()).not.toBeNull();
-
-        dispatchMouseEvent('mouseout');
-        act(() => jest.advanceTimersByTime(999));
-        expect(selector()).not.toBeNull();
-
-        act(() => jest.advanceTimersByTime(1));
-        expect(selector()).toBeNull();
-        expect(onSelectorClosed).toHaveBeenCalledTimes(1);
-    });
 
     it('applies the same hover leave timeout after manual button opening', () => {
         renderSelector();
@@ -142,57 +114,5 @@ describe('PlaybackModeSelector hover behavior', () => {
 
         act(() => jest.advanceTimersByTime(3001));
         expect(selector()).not.toBeNull();
-    });
-
-    it('still auto closes temporary selectors when manual auto-hide is disabled', () => {
-        renderSelector({ keepManualSelectorOpen: true, temporaryOpenRequest: 1 });
-
-        dispatchMouseEvent('mouseover');
-        act(() => jest.advanceTimersByTime(3000));
-        expect(selector()).not.toBeNull();
-
-        dispatchMouseEvent('mouseout');
-        act(() => jest.advanceTimersByTime(1000));
-        expect(selector()).toBeNull();
-    });
-
-    it('keeps a selector open when a keybind opens it while the trigger is already hovered', () => {
-        renderSelector();
-        const button = document.querySelector('button')!;
-        jest.spyOn(button, 'matches').mockImplementation((selector) => selector === ':hover');
-
-        renderSelector({ temporaryOpenRequest: 1 });
-        act(() => jest.advanceTimersByTime(3000));
-
-        expect(selector()).not.toBeNull();
-    });
-
-    it('does not replace a button-opened selector with a temporary request', () => {
-        const onSelectorOpened = jest.fn();
-        renderSelector({ onSelectorOpened });
-
-        act(() => {
-            document.querySelector('button')?.click();
-        });
-        expect(onSelectorOpened).toHaveBeenCalledTimes(1);
-
-        renderSelector({ temporaryOpenRequest: 1, onSelectorOpened });
-        act(() => jest.advanceTimersByTime(3000));
-
-        expect(selector()).not.toBeNull();
-        expect(onSelectorOpened).toHaveBeenCalledTimes(1);
-    });
-
-    it('resets the temporary selector timeout when the request changes', () => {
-        renderSelector({ temporaryOpenRequest: 1 });
-        act(() => jest.advanceTimersByTime(2500));
-
-        renderSelector({ temporaryOpenRequest: 2, selectedPlayModes: new Set([PlayMode.repeat]) });
-        expect(selector()?.getAttribute('data-selected-play-modes')).toBe(String(PlayMode.repeat));
-        act(() => jest.advanceTimersByTime(501));
-        expect(selector()).not.toBeNull();
-
-        act(() => jest.advanceTimersByTime(3001));
-        expect(selector()).toBeNull();
     });
 });

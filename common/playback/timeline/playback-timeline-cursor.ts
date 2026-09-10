@@ -1,9 +1,7 @@
 import type { IndexedSubtitleModel } from '@project/common';
-import PlaybackTimeline, {
-    advanceTimestampIndex,
-    firstTimestampIndex,
-    type PlaybackTimelineEventGroup,
-} from '@project/common/playback/timeline/playback-timeline';
+import type PlaybackTimeline from '@project/common/playback/timeline/playback-timeline';
+import { advanceTimestampIndex, firstTimestampIndex } from '@project/common/playback/timeline/playback-timeline';
+import type { PlaybackTimelineEventGroup } from '@project/common/playback/timeline/playback-timeline';
 
 /** Tracks a monotonic playback position and returns every compiled boundary crossed by each update. */
 export default class PlaybackTimelineCursor<T extends IndexedSubtitleModel> {
@@ -45,12 +43,14 @@ export default class PlaybackTimelineCursor<T extends IndexedSubtitleModel> {
 
     advance(timestampMs: number): PlaybackTimelineEventGroup[] {
         if (timestampMs < this.timestampMs) {
+            const nextActionBoundaryIndex = this.nextActionBoundaryIndex;
             const lowerStateBoundary = this.timeline.stateBoundaryTimestamps[this.nextStateBoundaryIndex - 1];
             const crossedLowerThreshold = lowerStateBoundary !== undefined && timestampMs < lowerStateBoundary;
             this.timestampMs = timestampMs;
             if (!crossedLowerThreshold) return [];
 
             this.reset(timestampMs, { includeAtTimestamp: false });
+            this.nextActionBoundaryIndex = Math.max(this.nextActionBoundaryIndex, nextActionBoundaryIndex);
             return [{ timestampMs, events: [], direction: 'backward' }];
         }
 

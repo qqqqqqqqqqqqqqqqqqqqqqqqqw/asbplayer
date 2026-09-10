@@ -1,15 +1,16 @@
-import {
+import { asbError, ensureStoragePersisted } from '@project/common/util';
+import type {
     OpenStatisticsMessage,
-    PlayMode,
     SettingsUpdatedMessage,
     ToggleSubtitlesInListFromVideoMessage,
     ToggleSubtitlesMessage,
     VideoToExtensionCommand,
 } from '@project/common';
-import { ApplyStrategy, KeyBindSet, TokenState } from '@project/common/settings';
+import { PlayMode } from '@project/common';
+import type { KeyBindSet } from '@project/common/settings';
+import { ApplyStrategy, TokenState } from '@project/common/settings';
 import { DefaultKeyBinder } from '@project/common/key-binder';
-import Binding from './binding';
-import { ensureStoragePersisted } from '@project/common/util';
+import type Binding from '@project/extension/src/services/binding';
 
 type Unbinder = (() => void) | false;
 
@@ -32,6 +33,8 @@ export default class KeyBindings {
     private _unbindResetOffset?: Unbinder = false;
     private _unbindAdjustPlaybackRate?: Unbinder = false;
     private _unbindToggleRepeat: Unbinder = false;
+    private _unbindCycleAutoPauseResumeMode: Unbinder = false;
+    private _unbindToggleSubtitleVisibility: Unbinder = false;
     private _unbindAdjustSubtitlePositionOffset: Unbinder = false;
     private _unbindAdjustTopSubtitlePositionOffset: Unbinder = false;
     private _unbindMarkHoveredToken?: Unbinder = false;
@@ -99,6 +102,26 @@ export default class KeyBindings {
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 context.togglePlayMode(PlayMode.repeat);
+            },
+            () => context.subtitleController.subtitles.length === 0,
+            true
+        );
+
+        this._unbindCycleAutoPauseResumeMode = this._keyBinder.bindCycleAutoPauseResumeMode(
+            (event) => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                context.cycleAutoPauseResumeMode();
+            },
+            () => context.subtitleController.subtitles.length === 0,
+            true
+        );
+
+        this._unbindToggleSubtitleVisibility = this._keyBinder.bindToggleSubtitleVisibility(
+            (event) => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                context.toggleSubtitleVisibility();
             },
             () => context.subtitleController.subtitles.length === 0,
             true
@@ -337,7 +360,7 @@ export default class KeyBindings {
                         };
                         void browser.runtime.sendMessage(settingsUpdatedCommand);
                     })
-                    .catch(console.error);
+                    .catch((error) => asbError('key-bindings', error));
             },
             () => context.subtitleController.subtitles.length === 0,
             true
@@ -364,7 +387,7 @@ export default class KeyBindings {
                         };
                         void browser.runtime.sendMessage(settingsUpdatedCommand);
                     })
-                    .catch(console.error);
+                    .catch((error) => asbError('key-bindings', error));
             },
             () => context.subtitleController.subtitles.length === 0,
             true
@@ -447,6 +470,16 @@ export default class KeyBindings {
         if (this._unbindToggleRepeat) {
             this._unbindToggleRepeat();
             this._unbindToggleRepeat = false;
+        }
+
+        if (this._unbindCycleAutoPauseResumeMode) {
+            this._unbindCycleAutoPauseResumeMode();
+            this._unbindCycleAutoPauseResumeMode = false;
+        }
+
+        if (this._unbindToggleSubtitleVisibility) {
+            this._unbindToggleSubtitleVisibility();
+            this._unbindToggleSubtitleVisibility = false;
         }
 
         if (this._unbindAdjustPlaybackRate) {

@@ -1,32 +1,34 @@
-import React, { MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isMobile } from 'react-device-detect';
 import { makeStyles } from '@mui/styles';
-import { useWindowSize } from '../hooks/use-window-size';
-import {
+import { useWindowSize } from '@project/common/app/hooks/use-window-size';
+import type {
     SubtitleModel,
     AudioTrackModel,
-    PostMineAction,
-    PlayMode,
     OffscreenDomCache,
     CardTextFieldValues,
-    PostMinePlayback,
     ControlType,
     IndexedSubtitleModel,
+    PlaybackState,
 } from '@project/common';
-import {
+import { PostMineAction, PlayMode, PostMinePlayback } from '@project/common';
+import type {
     MiscSettings,
     SubtitleSettings,
-    SaveSettingsOptions,
     AnkiSettings,
     AsbplayerSettings,
     SubtitleAlignment,
+    DictionaryTrack,
+    SettingsProvider,
+} from '@project/common/settings';
+import {
     changeForTextSubtitleSetting,
     textSubtitleSettingsForTrack,
     PauseOnHoverMode,
     allTextSubtitleSettings,
     TokenState,
     ApplyStrategy,
-    DictionaryTrack,
 } from '@project/common/settings';
 import {
     arrayEquals,
@@ -38,39 +40,47 @@ import {
     ensureStoragePersisted,
     subtitleTimestampWithDelay,
     errorMessageFromVideo,
+    formatAsSignedMs,
     timeDurationDisplay,
 } from '@project/common/util';
 import { HoveredToken, renderRichTextOntoSubtitles, getAnnotationsHtml } from '@project/common/annotations';
 import Clock from '@project/common/playback/timing/clock';
 import {
-    hasEnabledPlaybackModes,
-    playbackModeNotifications,
+    formatPlaybackModeNotifications,
+    playbackModeNotificationJoin,
+} from '@project/common/playback/controllers/playback-mode-controller';
+import type {
+    PlaybackModeNotificationFormatOptions,
+    PlayModeTransition,
 } from '@project/common/playback/controllers/playback-mode-controller';
 import PlaybackEngine from '@project/common/playback/playback-engine';
 import VideoFrameTimingDriver from '@project/common/playback/timing/video-frame-timing-driver';
-import Controls, { Point } from './Controls';
-import PlayerChannel from '../services/player-channel';
-import ChromeExtension from '../services/chrome-extension';
-import { type AlertColor } from '@mui/material/Alert';
-import Alert from './Alert';
+import type { Point } from '@project/common/app/components/Controls';
+import Controls from '@project/common/app/components/Controls';
+import PlayerChannel from '@project/common/app/services/player-channel';
+import type ChromeExtension from '@project/common/app/services/chrome-extension';
+import Alert from '@project/common/app/components/Alert';
+import type { AlertNotification } from '@project/common/app/components/Alert';
 import Button from '@mui/material/Button';
-import { useSubtitleDomCache } from '../hooks/use-subtitle-dom-cache';
-import { useAppKeyBinder } from '../hooks/use-app-key-binder';
-import { Direction, useSwipe } from '../hooks/use-swipe';
-import './subtitles.css';
+import { useSubtitleDomCache } from '@project/common/app/hooks/use-subtitle-dom-cache';
+import { useAppKeyBinder } from '@project/common/app/hooks/use-app-key-binder';
+import type { Direction } from '@project/common/app/hooks/use-swipe';
+import { useSwipe } from '@project/common/app/hooks/use-swipe';
+import '@project/common/app/components/subtitles.css';
 import i18n from 'i18next';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { adjacentSubtitle } from '../../key-binder';
-import { usePlaybackPreferences } from '../hooks/use-playback-preferences';
-import { MiningContext } from '../services/mining-context';
-import useSnackbar from '../../hooks/use-snackbar';
-import { useStableDictionaryTracks, useSubtitleStyles } from '../hooks/use-subtitle-styles';
-import { useFullscreen } from '../hooks/use-fullscreen';
+import { adjacentSubtitle } from '@project/common/key-binder';
+import { usePlaybackPreferences } from '@project/common/app/hooks/use-playback-preferences';
+import type { MiningContext } from '@project/common/app/services/mining-context';
+import useSnackbar from '@project/common/hooks/use-snackbar';
+import { useStableDictionaryTracks, useSubtitleStyles } from '@project/common/app/hooks/use-subtitle-styles';
+import { useFullscreen } from '@project/common/app/hooks/use-fullscreen';
 import MobileVideoOverlay from '@project/common/components/MobileVideoOverlay';
-import BlurOverlay from './BlurOverlay';
-import { CachedLocalStorage } from '../services/cached-local-storage';
-import useLastScrollableControlType from '../../hooks/use-last-scrollable-control-type';
-import { type Theme } from '@mui/material/styles';
+import BlurOverlay from '@project/common/app/components/BlurOverlay';
+import { CachedLocalStorage } from '@project/common/app/services/cached-local-storage';
+import useLastScrollableControlType from '@project/common/hooks/use-last-scrollable-control-type';
+import type { Theme } from '@mui/material/styles';
 
 const overlayContainerHeight = 48;
 interface ExperimentalHTMLVideoElement extends HTMLVideoElement {
@@ -263,6 +273,7 @@ export interface SeekRequest {
 
 interface Props {
     settings: AsbplayerSettings;
+    settingsProvider: SettingsProvider;
     extension: ChromeExtension;
     videoFile: string;
     channel: string;
@@ -280,7 +291,8 @@ interface Props {
         cardTextFieldValues: CardTextFieldValues,
         timestamp: number
     ) => void;
-    onSettingsChanged: (settings: Partial<AsbplayerSettings>, options?: SaveSettingsOptions) => void;
+    onSettingsChanged: (settings: Partial<AsbplayerSettings>) => void;
+    profile?: string;
     onAnkiDialogRewind: () => void;
     onError: (error: string) => void;
 }
@@ -318,6 +330,7 @@ const saveLastControlType = async (controlType: ControlType): Promise<void> => {
 
 export default function VideoPlayer({
     settings,
+    settingsProvider,
     extension,
     videoFile,
     channel,
@@ -329,17 +342,17 @@ export default function VideoPlayer({
     onError,
     onAnkiDialogRewind,
     onSettingsChanged,
+    profile,
 }: Props) {
     const classes = useStyles();
     const { t } = useTranslation();
     const poppingInRef = useRef<boolean>(undefined);
-    const settingsRef = useRef(settings);
-    settingsRef.current = settings;
     const onSettingsChangedRef = useRef(onSettingsChanged);
     onSettingsChangedRef.current = onSettingsChanged;
     const videoRef = useRef<ExperimentalHTMLVideoElement>(undefined);
     const [video, setVideo] = useState<ExperimentalHTMLVideoElement>();
     const playbackEngineRef = useRef<PlaybackEngine<IndexedSubtitleModel>>(undefined);
+    const profileRef = useRef(profile);
     const hiddenVideoRef = useRef<HTMLVideoElement | null>(null); // seek preview thumbnail
     const [hiddenVideoReady, setHiddenVideoReady] = useState(false);
     const [windowWidth, windowHeight] = useWindowSize(true);
@@ -374,27 +387,15 @@ export default function VideoPlayer({
     miscSettingsRef.current = miscSettings;
     const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(settings);
     const [ankiSettings, setAnkiSettings] = useState<AnkiSettings>(settings);
-    const playbackPreferences = usePlaybackPreferences({ ...miscSettings, ...subtitleSettings }, extension);
+    const playbackPreferences = usePlaybackPreferences();
     const [displaySubtitles, setDisplaySubtitles] = useState(playbackPreferences.displaySubtitles);
     const [disabledSubtitleTracks, setDisabledSubtitleTracks] = useState<{ [index: number]: boolean }>({});
     const disabledSubtitleTracksRef = useRef(disabledSubtitleTracks);
     disabledSubtitleTracksRef.current = disabledSubtitleTracks;
     const [playModes, setPlayModes] = useState<Set<PlayMode>>(() => new Set([PlayMode.normal]));
-    const playModesRef = useRef(playModes);
-    playModesRef.current = playModes;
-    const [playModeSelectorRequest, setPlayModeSelectorRequest] = useState<number>();
-    const playModeSelectorOpen = useRef(false);
-    const rememberedPlaybackModesOverlayRequestedRef = useRef(false);
-    const requestRememberedPlaybackModesOverlay = useCallback(() => {
-        if (rememberedPlaybackModesOverlayRequestedRef.current) return;
-
-        rememberedPlaybackModesOverlayRequestedRef.current = true;
-        setPlayModeSelectorRequest((request) => (request ?? 0) + 1);
-    }, []);
     const synchronizePlaybackModes = useCallback(
         (modes: ReadonlySet<PlayMode>) => {
             const synchronizedModes = new Set(modes);
-            playModesRef.current = synchronizedModes;
             setPlayModes(synchronizedModes);
             playerChannel.playModes(synchronizedModes);
         },
@@ -409,16 +410,17 @@ export default function VideoPlayer({
     const [, setTopSubtitlePositionOffset] = useState<number>(subtitleSettings.topSubtitlePositionOffset);
     const showSubtitlesRef = useRef<IndexedSubtitleModel[]>([]);
     showSubtitlesRef.current = showSubtitles;
-    const timelineShowingSubtitlesRef = useRef<readonly IndexedSubtitleModel[]>([]);
-    const showingSubtitlesChangedRef = useRef<(subtitles: readonly IndexedSubtitleModel[]) => void>(() => {});
+    const showingSubtitleIndexesRef = useRef<readonly number[]>([]);
+    const playbackStateChangedRef = useRef<(state: PlaybackState) => void>(() => {});
     const clock = useMemo<Clock>(() => new Clock(() => performance.now()), []);
     const mousePositionRef = useRef<Point | undefined>(undefined);
     const [showCursor, setShowCursor] = useState<boolean>(isMobile);
     const lastMouseMovementTimestamp = useRef<number>(0);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [alertOpen, setAlertOpen] = useState<boolean>(false);
-    const [alertMessage, setAlertMessage] = useState<string>('');
-    const [alertSeverity, setAlertSeverity] = useState<AlertColor>('info');
+    const [alert, setAlert] = useState<{ open: boolean; notifications: AlertNotification[] }>({
+        open: false,
+        notifications: [],
+    });
     const [alertDisableAutoHide, setAlertDisableAutoHide] = useState<boolean>(false);
     const [pendingPlaybackPosition, setPendingPlaybackPosition] = useState<number>();
     const resumePlaybackSnackbar = useSnackbar({
@@ -485,11 +487,20 @@ export default function VideoPlayer({
 
     const notifyPlaybackRate = useCallback(
         (options: ReturnType<PlaybackEngine<IndexedSubtitleModel>['playbackRateChanged']>) => {
-            if (!options.notify) return;
-            setAlertSeverity('info');
-            const text = i18n.t(options.locKey, { rate: options.playbackRate.toFixed(1) });
-            setAlertMessage(text);
-            setAlertOpen(true);
+            if (!options?.notify) return;
+            setAlert({
+                open: true,
+                notifications: [
+                    {
+                        key: options.notification.key,
+                        message: {
+                            locKey: options.notification.locKey,
+                            replacements: options.notification.replacements,
+                        },
+                        severity: 'info',
+                    },
+                ],
+            });
         },
         []
     );
@@ -501,6 +512,7 @@ export default function VideoPlayer({
             if (!playbackEngine) return;
 
             const result = playbackEngine.playbackRateChanged(playbackRate);
+            if (result === undefined) return;
             clock.rate = result.playbackRate;
             notifyPlaybackRate(result);
         },
@@ -508,6 +520,19 @@ export default function VideoPlayer({
     );
     const synchronizePlaybackModesRef = useRef(synchronizePlaybackModes);
     synchronizePlaybackModesRef.current = synchronizePlaybackModes;
+
+    const handlePlaybackModesChanged = useCallback(
+        (transition: PlayModeTransition, options: PlaybackModeNotificationFormatOptions = {}): AlertNotification[] => {
+            synchronizePlaybackModesRef.current(transition.modes);
+            if (!transition.added.size && !transition.removed.size) return [];
+            return formatPlaybackModeNotifications(transition, options).map(({ key, text }) => ({
+                key,
+                message: text,
+                severity: 'info',
+            }));
+        },
+        []
+    );
 
     const handlePlaybackRateChanged = useCallback(
         (playbackRate: number) => updatePlaybackRate(playbackRate, false),
@@ -534,7 +559,7 @@ export default function VideoPlayer({
             const videoElement = element as ExperimentalHTMLVideoElement;
             videoRef.current = videoElement;
             setVideo(videoElement);
-            clock.setTime(videoElement.currentTime * 1000);
+            clock.setTime(videoElement.currentTime * 1000, { paused: videoElement.paused });
 
             if (videoElement.readyState === 4) {
                 notifyReady(videoElement, playerChannel, setAudioTracks, setSelectedAudioTrack);
@@ -552,11 +577,7 @@ export default function VideoPlayer({
 
             videoElement.oncanplay = () => {
                 playerChannel.readyState(4);
-                clock.setTime(videoElement.currentTime * 1000);
-
-                if (playing()) {
-                    clock.start();
-                }
+                clock.setTime(videoElement.currentTime * 1000, { paused: videoElement.paused });
             };
 
             if (isMobile) videoElement.volume = 1; // Force volume to 1 on mobile - users can control device volume
@@ -564,15 +585,16 @@ export default function VideoPlayer({
         [clock, playerChannel]
     );
 
-    const updateSubtitlesWithOffset = useCallback((offset: number) => {
+    const updateSubtitlesWithOffset = useCallback((offset: number, notifyPlayer: boolean, notificationKey: string) => {
         const previousOffset = offsetRef.current;
         offsetRef.current = offset;
         setOffset(offset);
-        setAlertSeverity('info');
-        const addedSign = offset >= 0 ? '+' : '';
-        setAlertMessage(`${addedSign}${offset} ms`);
-        setAlertOpen(true);
-
+        if (notifyPlayer) {
+            setAlert({
+                open: true,
+                notifications: [{ key: notificationKey, message: formatAsSignedMs(offset), severity: 'info' }],
+            });
+        }
         if (offset === previousOffset) return;
 
         const shiftedSubtitles = subtitlesRef.current.map((s, i) => ({
@@ -588,17 +610,17 @@ export default function VideoPlayer({
         }));
         subtitlesRef.current = shiftedSubtitles;
         setSubtitles(shiftedSubtitles);
-
-        showingSubtitlesChangedRef.current(timelineShowingSubtitlesRef.current);
     }, []);
 
     useEffect(() => {
         if (!video) return;
 
         const playbackEngine = new PlaybackEngine({
-            settings: { ...settingsRef.current, ...miscSettingsRef.current },
+            settingsProvider,
+            appIntegration: extension.supportsAppIntegration,
+            autoPauseCorrectionSuppressed: false,
             subtitles: subtitlesRef.current,
-            ready: { settings: true },
+            playbackModesDisabled: false,
             playbackModesSuppressed: false,
             playbackPositionKeys: videoFileNameRef.current ? [videoFileNameRef.current] : [],
             timingDriver: new VideoFrameTimingDriver(
@@ -628,7 +650,7 @@ export default function VideoPlayer({
                         updatePlayerState();
                     },
                     onSeeked: (timestampMs) => {
-                        clock.setTime(timestampMs); // rVFC may not run during pause
+                        clock.setTime(timestampMs, { paused: video.paused }); // rVFC may not run during pause
                         updatePlayerState();
                     },
                     onPlaybackRateChanged: handlePlaybackRateChanged,
@@ -647,27 +669,54 @@ export default function VideoPlayer({
                 },
                 seek: async (timestampMs) => {
                     video.currentTime = timestampMs / 1000;
-                    clock.setTime(timestampMs);
+                    clock.setTime(timestampMs, { paused: video.paused });
                 },
                 setPlaybackRate: (playbackRate) => {
                     if (video.playbackRate !== playbackRate) video.playbackRate = playbackRate;
                 },
-                setSubtitleOffset: (offset) => updateSubtitlesWithOffset(offset),
-                showingSubtitlesChanged: (showingSubtitles) => showingSubtitlesChangedRef.current(showingSubtitles),
+                setSubtitleOffset: (offset, options, notificationKey) =>
+                    updateSubtitlesWithOffset(offset, options.notifyPlayer, notificationKey),
+                playbackStateChanged: (state) => {
+                    playbackStateChangedRef.current(state);
+                    playerChannel.playbackState(state);
+                },
                 playbackPositionChanged: setPendingPlaybackPosition,
-                saveSettings: (settings, options: SaveSettingsOptions) =>
-                    onSettingsChangedRef.current(settings, options),
+                saveSettings: (settings) => onSettingsChangedRef.current(settings),
                 playbackModesChanged: (transition) => {
-                    synchronizePlaybackModesRef.current(transition.modes);
-                    if (!transition.added.size && !transition.removed.size) return;
+                    const notifications = handlePlaybackModesChanged(transition);
+                    if (notifications.length) setAlert({ open: true, notifications });
+                },
+                initialPlaybackSettingsChanged: (settings) => {
+                    playerChannel.offset(settings.subtitleOffset);
+                    clock.rate = settings.playbackRate;
+                    playerChannel.playbackRate(settings.playbackRate, false);
 
-                    const { notifications, join } = playbackModeNotifications(transition);
-                    if (notifications.length) {
-                        setAlertSeverity('info');
-                        setAlertMessage(notifications.map((n) => t(n)).join(join));
-                        setAlertOpen(true);
+                    const offsetAndRate = (_t: TFunction) =>
+                        settings.notifications.offsetAndRate
+                            .map((notification) =>
+                                notification.type === 'message'
+                                    ? notification.message
+                                    : _t(notification.notification.locKey, notification.notification.replacements)
+                            )
+                            .join(playbackModeNotificationJoin);
+                    const playbackModeNotifications = handlePlaybackModesChanged(settings.playbackModeTransition, {
+                        includeTransition: false,
+                    });
+                    const notifications: AlertNotification[] = [];
+                    if (offsetAndRate.length) {
+                        notifications.push({
+                            message: offsetAndRate,
+                            severity: 'info',
+                            autoHideDuration: settings.autoHideDuration,
+                        });
                     }
-                    if (!playModeSelectorOpen.current) setPlayModeSelectorRequest((request) => (request ?? 0) + 1);
+                    notifications.push(
+                        ...playbackModeNotifications.map((notification) => ({
+                            ...notification,
+                            autoHideDuration: settings.autoHideDuration,
+                        }))
+                    );
+                    if (notifications.length) setAlert({ open: true, notifications });
                 },
                 onError: (error) => onErrorRef.current?.(String(error)),
             },
@@ -684,14 +733,22 @@ export default function VideoPlayer({
         };
     }, [
         clock,
+        extension,
         handleDurationChanged,
         handlePlaybackRateChanged,
+        handlePlaybackModesChanged,
         playerChannel,
-        t,
+        settingsProvider,
         updatePlayerState,
         updateSubtitlesWithOffset,
         video,
     ]);
+
+    useEffect(() => {
+        if (profileRef.current === profile) return;
+        profileRef.current = profile;
+        playbackEngineRef.current?.profileChanged(profile);
+    }, [profile]);
 
     function selectAudioTrack(id: string) {
         const audioTracks = videoRef.current?.audioTracks;
@@ -709,9 +766,10 @@ export default function VideoPlayer({
         }
     }
 
-    const togglePlaybackMode = useCallback((targetMode: PlayMode) => {
-        playbackEngineRef.current?.togglePlaybackMode(targetMode);
-    }, []);
+    const togglePlaybackMode = useCallback(
+        (targetMode: PlayMode) => playbackEngineRef.current?.togglePlaybackMode(targetMode),
+        []
+    );
 
     useEffect(() => {
         const playbackEngine = playbackEngineRef.current;
@@ -731,9 +789,6 @@ export default function VideoPlayer({
             setVideoFileName(videoFileName);
             videoFileNameRef.current = videoFileName;
             playbackEngineRef.current?.playbackPositionKeysChanged(videoFileName ? [videoFileName] : []);
-            if (miscSettingsRef.current.rememberPlaybackModes && hasEnabledPlaybackModes(playModesRef.current)) {
-                requestRememberedPlaybackModesOverlay();
-            }
         });
 
         playerChannel.onPlay(() => {
@@ -759,8 +814,7 @@ export default function VideoPlayer({
                 playerChannel.readyState(4);
             }
 
-            clock.stop();
-            clock.setTime(actualCurrentTime * 1000);
+            clock.setTime(actualCurrentTime * 1000, { paused: true });
         });
 
         playerChannel.onAudioTrackSelected((id) => {
@@ -775,17 +829,23 @@ export default function VideoPlayer({
         });
 
         playerChannel.onSubtitles((subtitles) => {
-            const videoSubtitles = subtitles.map((s, i) => ({ ...s, index: i }));
+            const offset = playbackEngineRef.current?.lastSubtitleOffset ?? 0;
+            const videoSubtitles = subtitles.map((s, i) => ({
+                ...s,
+                start: s.originalStart + offset,
+                end: s.originalEnd + offset,
+                index: i,
+            }));
             subtitlesRef.current = videoSubtitles;
             setSubtitles(videoSubtitles);
             setTrackCount(Math.max(...videoSubtitles.map((s) => s.track)) + 1);
 
             if (videoSubtitles.length > 0) {
-                const s = videoSubtitles[0];
-                const offset = s.start - s.originalStart;
                 offsetRef.current = offset;
                 setOffset(offset);
             }
+
+            playerChannel.offset(offset);
 
             setShowSubtitles([]);
         });
@@ -830,16 +890,14 @@ export default function VideoPlayer({
         playerChannel.onOffset((offset) => {
             const playbackEngine = playbackEngineRef.current;
             if (!playbackEngine) return;
-
-            playbackEngine.subtitleOffsetChanged(offset, { notifyPlayer: false });
+            playbackEngine.subtitleOffsetChanged(offset, { notifyPlayer: true });
         });
-        playerChannel.onPlaybackRate((playbackRate) => {
-            updatePlaybackRate(playbackRate, false);
-        });
+        playerChannel.onPlaybackRate((playbackRate) => updatePlaybackRate(playbackRate, false));
         playerChannel.onAlert((message, severity) => {
-            setAlertOpen(true);
-            setAlertMessage(message);
-            setAlertSeverity(severity as AlertColor);
+            setAlert({
+                open: true,
+                notifications: [{ message, severity: severity as AlertNotification['severity'] }],
+            });
         });
 
         window.onbeforeunload = () => {
@@ -849,17 +907,9 @@ export default function VideoPlayer({
         };
 
         setPlayerChannelSubscribed(true);
-        playerChannel.playModes(playModesRef.current);
+        playerChannel.playModes(playbackEngineRef.current?.playbackModes ?? new Set([PlayMode.normal]));
         return () => playerChannel.close();
-    }, [
-        clock,
-        playerChannel,
-        requestFullscreen,
-        requestRememberedPlaybackModesOverlay,
-        togglePlaybackMode,
-        updatePlaybackRate,
-        updateSubtitlesWithOffset,
-    ]);
+    }, [clock, playerChannel, requestFullscreen, togglePlaybackMode, updatePlaybackRate, updateSubtitlesWithOffset]);
 
     const handlePlay = useCallback(() => {
         if (videoRef.current) {
@@ -997,11 +1047,13 @@ export default function VideoPlayer({
         playerChannel.loadSubtitles();
     }, [playerChannel]);
 
-    showingSubtitlesChangedRef.current = (timelineSubtitles) => {
-        timelineShowingSubtitlesRef.current = timelineSubtitles;
-        const showingSubtitles = timelineSubtitles
-            .filter((subtitle) => !disabledSubtitleTracksRef.current[subtitle.track])
-            .map((subtitle) => subtitlesRef.current[subtitle.index] ?? subtitle)
+    const updateShowingSubtitles = useCallback((showingSubtitleIndexes: readonly number[]) => {
+        const showingSubtitles = showingSubtitleIndexes
+            .map((index) => subtitlesRef.current[index])
+            .filter(
+                (subtitle): subtitle is IndexedSubtitleModel =>
+                    subtitle !== undefined && !disabledSubtitleTracksRef.current[subtitle.track]
+            )
             .slice()
             .sort(compareSubtitlesForDisplay);
         if (arrayEquals(showingSubtitles, showSubtitlesRef.current, (left, right) => left === right)) {
@@ -1015,11 +1067,20 @@ export default function VideoPlayer({
                 // ignore
             });
         }
+    }, []);
+
+    playbackStateChangedRef.current = (state) => {
+        const hiddenSubtitleIndexes = state.hiddenSubtitleIndexes ?? [];
+        const visibleSubtitleIndexes = state.showingSubtitleIndexes.filter(
+            (index) => !hiddenSubtitleIndexes.includes(index)
+        );
+        showingSubtitleIndexesRef.current = visibleSubtitleIndexes;
+        updateShowingSubtitles(visibleSubtitleIndexes);
     };
 
     useEffect(() => {
-        showingSubtitlesChangedRef.current(timelineShowingSubtitlesRef.current);
-    }, [disabledSubtitleTracks]);
+        updateShowingSubtitles(showingSubtitleIndexesRef.current);
+    }, [disabledSubtitleTracks, updateShowingSubtitles]);
 
     const handleOffsetChange = useCallback(
         (offset: number) => {
@@ -1395,14 +1456,20 @@ export default function VideoPlayer({
                 }
 
                 if (!isMobile) {
-                    setAlertSeverity('info');
-                    setAlertMessage(t('info.manualMiningIntervalPrompt'));
+                    setAlert({
+                        open: true,
+                        notifications: [
+                            {
+                                message: { locKey: 'info.manualMiningIntervalPrompt', replacements: {} },
+                                severity: 'info',
+                            },
+                        ],
+                    });
                     setAlertDisableAutoHide(true);
-                    setAlertOpen(true);
                 }
             } else {
                 setAlertDisableAutoHide(false);
-                setAlertOpen(false);
+                setAlert((alert) => ({ ...alert, open: false }));
                 const video = videoRef.current;
 
                 if (!video) {
@@ -1456,7 +1523,6 @@ export default function VideoPlayer({
             }
         },
         [
-            t,
             mineSubtitle,
             playerChannel,
             mineIntervalStartTimestamp,
@@ -1485,7 +1551,7 @@ export default function VideoPlayer({
                     // Edge case: user started manually recording but are now using an "automatic" mining shortcut
                     // Cancel the "recording" operation
                     setAlertDisableAutoHide(false);
-                    setAlertOpen(false);
+                    setAlert((alert) => ({ ...alert, open: false }));
                     setMineIntervalStartTimestamp(undefined);
                 }
 
@@ -1660,6 +1726,54 @@ export default function VideoPlayer({
         );
     }, [keyBinder, togglePlaybackMode]);
 
+    useEffect(() => {
+        return keyBinder.bindCycleAutoPauseResumeMode(
+            (event) => {
+                event.preventDefault();
+                const notification = playbackEngineRef.current?.cycleAutoPauseResumeMode();
+                if (notification === undefined) return;
+                setAlert({
+                    open: true,
+                    notifications: [
+                        {
+                            key: notification.key,
+                            message: {
+                                locKey: notification.locKey,
+                                replacements: { value: t(notification.valueLocKey) },
+                            },
+                            severity: 'info',
+                        },
+                    ],
+                });
+            },
+            () => subtitles.length === 0
+        );
+    }, [keyBinder, subtitles.length, t]);
+
+    useEffect(() => {
+        return keyBinder.bindToggleSubtitleVisibility(
+            (event) => {
+                event.preventDefault();
+                const notification = playbackEngineRef.current?.toggleSubtitleVisibility();
+                if (notification === undefined) return;
+                setAlert({
+                    open: true,
+                    notifications: [
+                        {
+                            key: notification.key,
+                            message: {
+                                locKey: notification.locKey,
+                                replacements: { value: t(notification.valueLocKey) },
+                            },
+                            severity: 'info',
+                        },
+                    ],
+                });
+            },
+            () => subtitles.length === 0
+        );
+    }, [keyBinder, subtitles.length, t]);
+
     const handleSubtitlesToggle = useCallback(() => {
         setDisplaySubtitles(!displaySubtitles);
         playbackPreferences.displaySubtitles = !displaySubtitles;
@@ -1684,19 +1798,6 @@ export default function VideoPlayer({
     }, [playerChannel, popOut]);
 
     const handlePlayMode = useCallback((targetMode: PlayMode) => togglePlaybackMode(targetMode), [togglePlaybackMode]);
-
-    const handlePlayModeSelectorOpened = useCallback(() => {
-        playModeSelectorOpen.current = true;
-    }, []);
-
-    const handlePlayModeSelectorClosed = useCallback(() => {
-        playModeSelectorOpen.current = false;
-    }, []);
-
-    const handleMobilePlayModeSelectorClosed = useCallback(() => {
-        handlePlayModeSelectorClosed();
-        setPlayModeSelectorRequest(undefined);
-    }, [handlePlayModeSelectorClosed]);
 
     const handleClose = useCallback(() => {
         playerChannel.close();
@@ -1760,7 +1861,7 @@ export default function VideoPlayer({
 
     const handleAlertClosed = useCallback(() => {
         setAlertDisableAutoHide(false);
-        setAlertOpen(false);
+        setAlert((alert) => ({ ...alert, open: false }));
     }, []);
     const renderDictionaryTracks = useStableDictionaryTracks(settings.dictionaryTracks);
     const trackStyles = useSubtitleStyles(subtitleSettings, trackCount ?? 1, renderDictionaryTracks, 'video');
@@ -1916,10 +2017,7 @@ export default function VideoPlayer({
     const topSubtitleElements = displaySubtitles ? subtitleElementsWithAlignment('top') : [];
     const bottomSubtitleElements = displaySubtitles ? subtitleElementsWithAlignment('bottom') : [];
     const mobileOverlayModel = () => {
-        if (
-            playModeSelectorRequest === undefined &&
-            (!isMobile || (playing() && mineIntervalStartTimestamp === undefined))
-        ) {
+        if (!isMobile || (playing() && mineIntervalStartTimestamp === undefined)) {
             return undefined;
         }
 
@@ -1940,7 +2038,6 @@ export default function VideoPlayer({
             subtitleDisplaying: showSubtitles.length > 0,
             subtitlesAreVisible: displaySubtitles,
             playModes: Array.from(playModes),
-            playModeSelectorRequest,
             themeType: settings.themeType,
         };
     };
@@ -1991,16 +2088,13 @@ export default function VideoPlayer({
                 {resumePlaybackPrompt}
             </Alert>
             <Alert
-                open={alertOpen}
+                open={alert.open}
                 disableAutoHide={alertDisableAutoHide}
                 onClose={handleAlertClosed}
-                autoHideDuration={3000}
-                severity={alertSeverity}
+                notifications={alert.notifications}
                 anchor={alertAnchor}
                 useAppLogo={false}
-            >
-                {alertMessage}
-            </Alert>
+            />
             <MobileVideoOverlay
                 ref={mobileOverlayRef}
                 model={mobileOverlayModel()}
@@ -2016,9 +2110,6 @@ export default function VideoPlayer({
                 onPlayModeSelected={handlePlayMode}
                 onSeek={handleSeekByTimestamp}
                 onToggleSubtitles={handleSubtitlesToggle}
-                onPlayModeSelectorOpened={handlePlayModeSelectorOpened}
-                playModeSelectorRequest={playModeSelectorRequest}
-                onPlayModeSelectorClosed={handleMobilePlayModeSelectorClosed}
             />
             <video
                 preload="auto"
@@ -2108,8 +2199,6 @@ export default function VideoPlayer({
                 onPlaybackRateChange={handlePlaybackRateChange}
                 onPopOutToggle={handlePopOutToggle}
                 onPlayMode={handlePlayMode}
-                onPlayModeSelectorOpened={handlePlayModeSelectorOpened}
-                onPlayModeSelectorClosed={handlePlayModeSelectorClosed}
                 onClose={handleClose}
                 onHideSubtitlePlayerToggle={handleHideSubtitlePlayerToggle}
                 playbackPreferences={playbackPreferences}

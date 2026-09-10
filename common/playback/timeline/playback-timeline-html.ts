@@ -1,6 +1,8 @@
-import { buildPlaybackPlan, type PlaybackPlan } from '@project/common/playback/plan/playback-plan';
+import { buildPlaybackPlan } from '@project/common/playback/plan/playback-plan';
+import type { PlaybackPlan } from '@project/common/playback/plan/playback-plan';
 import type { PlaybackTimelineBlock } from '@project/common/playback/timeline/playback-timeline';
-import { AutoPausePreference, PlayMode, type IndexedSubtitleModel } from '@project/common';
+import { AutoPausePreference, PlayMode } from '@project/common';
+import type { IndexedSubtitleModel } from '@project/common';
 import type { AsbplayerSettings } from '@project/common/settings';
 
 export interface PlaybackTimelineExportPlanInput<T extends IndexedSubtitleModel> {
@@ -32,6 +34,13 @@ export const buildPlaybackTimelineExportPlan = <T extends IndexedSubtitleModel>(
         playbackRate,
         fastForwardModePlaybackRate: settings.fastForwardModePlaybackRate,
         fastForwardPlaybackMinimumSkipIntervalMs: settings.fastForwardPlaybackMinimumSkipIntervalMs,
+        autoPauseResumeMode: settings.autoPauseResumeMode,
+        autoPauseResumeDelayMs: settings.autoPauseResumeDelayMs,
+        autoPauseFixedDurationMs: settings.autoPauseFixedDurationMs,
+        autoPauseMinimumDurationMs: settings.autoPauseMinimumDurationMs,
+        autoPauseMaximumDurationMs: settings.autoPauseMaximumDurationMs,
+        autoPauseTimePerCharacterMs: settings.autoPauseTimePerCharacterMs,
+        subtitleVisibility: settings.subtitleVisibility,
     });
 
     return plan;

@@ -1,16 +1,27 @@
-import {
+import type {
     AnkiExportMode,
-    AutoPausePreference,
     PlayMode,
     PostMineAction,
     PostMinePlayback,
     SubtitleHtml,
-} from '../src/model';
-import { arrayEquals } from '../util';
+} from '@project/common/src/model';
+import { AutoPausePreference } from '@project/common/src/model';
+import { arrayEquals } from '@project/common/util';
 
-export interface SaveSettingsOptions {
-    readonly saveOnly: boolean;
-}
+export const activeProfileKey = 'activeSettingsProfile';
+export const profilesKey = 'settingsProfiles';
+
+// Settings visible in UI probably shouldn't ever be here to prevent user confusion.
+export const saveOnlySettings: readonly (keyof AsbplayerSettings)[] = [
+    'lastSubtitleOffset',
+    'lastPlaybackModes',
+    'lastPlaybackPositions',
+];
+
+export const isSaveOnlySettings = (settings: Partial<AsbplayerSettings>): boolean => {
+    const changedKeys = Object.keys(settings) as (keyof AsbplayerSettings)[];
+    return changedKeys.every((key) => saveOnlySettings.includes(key));
+};
 
 export enum PauseOnHoverMode {
     disabled = 0,
@@ -18,10 +29,46 @@ export enum PauseOnHoverMode {
     inNotOut = 2,
 }
 
+export enum AutoPauseResumeMode {
+    manual = 'manual',
+    fixed = 'fixed',
+    subtitleLength = 'subtitleLength',
+}
+
+export enum SubtitleVisibility {
+    whenDue = 'whenDue',
+    whilePaused = 'whilePaused',
+}
+
 export enum VideoSubtitleSplitBehavior {
     rememberSplitPosition = 'rememberSplitPosition',
     autoMaximizeVideo = 'autoMaximizeVideo',
 }
+
+export enum SubtitleListTimestampDisplay {
+    hidden = 'hidden',
+    start = 'start',
+    startAndEnd = 'startAndEnd',
+}
+
+export interface SubtitleListCustomization {
+    readonly showMiningButton: boolean;
+    readonly timestampDisplay: SubtitleListTimestampDisplay;
+}
+
+export const effectiveSubtitleListCustomization = (
+    settings: Pick<MiscSettings, 'showSubtitleListMiningButton' | 'subtitleListTimestampDisplay'>,
+    supported: boolean
+): SubtitleListCustomization =>
+    supported
+        ? {
+              showMiningButton: settings.showSubtitleListMiningButton,
+              timestampDisplay: settings.subtitleListTimestampDisplay,
+          }
+        : {
+              showMiningButton: true,
+              timestampDisplay: SubtitleListTimestampDisplay.start,
+          };
 
 // Bitsets - if the nth bit is 1 then the nth track is "seekable" where "seekable"
 // means that the track is eligible for seeking, and automatic play mode behaviors
@@ -39,8 +86,17 @@ export interface PlaybackPosition {
 export interface MiscSettings {
     readonly themeType: 'dark' | 'light';
     readonly videoSubtitleSplitBehavior: VideoSubtitleSplitBehavior;
+    readonly showSubtitleListMiningButton: boolean;
+    readonly subtitleListTimestampDisplay: SubtitleListTimestampDisplay;
     readonly copyToClipboardOnMine: boolean;
     readonly autoPausePreference: AutoPausePreference;
+    readonly autoPauseResumeMode: AutoPauseResumeMode;
+    readonly autoPauseResumeDelayMs: number;
+    readonly autoPauseFixedDurationMs: number;
+    readonly autoPauseMinimumDurationMs: number;
+    readonly autoPauseMaximumDurationMs: number;
+    readonly autoPauseTimePerCharacterMs: number;
+    readonly subtitleVisibility: SubtitleVisibility;
     readonly subtitleTriggerStartOffset: number;
     readonly subtitleTriggerEndOffset: number;
     readonly subtitleTriggerGapEndOffset: number;
@@ -934,6 +990,8 @@ export interface KeyBindSet {
     readonly increasePlaybackRate: KeyBind;
     readonly toggleSidePanel: KeyBind;
     readonly toggleRepeat: KeyBind;
+    readonly toggleSubtitleVisibility: KeyBind;
+    readonly cycleAutoPauseResumeMode: KeyBind;
     readonly moveBottomSubtitlesUp: KeyBind;
     readonly moveBottomSubtitlesDown: KeyBind;
     readonly moveTopSubtitlesUp: KeyBind;
@@ -1028,6 +1086,7 @@ export interface PageSettings {
     svtplay: Page;
     urplay: Page;
     archive: Page;
+    crunchyroll: Page;
 }
 
 export interface StreamingVideoSettings {

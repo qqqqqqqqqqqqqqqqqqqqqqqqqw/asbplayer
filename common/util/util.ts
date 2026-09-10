@@ -1,5 +1,6 @@
+import { asbWarn } from '@project/common/util/log';
 import sanitize from 'sanitize-filename';
-import {
+import type {
     DimensionsModel,
     Rgb,
     SubtitleModel,
@@ -8,11 +9,35 @@ import {
     Token,
     Tokenization,
     TokenReading,
-} from '../src/model';
-import { TextSubtitleSettings, TokenStatus } from '../settings/settings';
-import { Progress } from '..';
-import { TokenStatusInfo } from '../dictionary-db';
-import { PitchAccentPosition } from '../yomitan';
+} from '@project/common/src/model';
+import type { TextSubtitleSettings } from '@project/common/settings/settings';
+import { TokenStatus } from '@project/common/settings/settings';
+import type { Progress } from '..';
+import type { TokenStatusInfo } from '@project/common/dictionary-db';
+import type { PitchAccentPosition } from '@project/common/yomitan';
+
+let subtitleHtmlHelperElement: HTMLDivElement | undefined;
+const subtitleGraphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const invisibleGraphemePattern = /^[\s\p{Default_Ignorable_Code_Point}]*$/u;
+
+/** Removes presentation markup, ruby readings, and ruby fallback text from subtitle text. */
+export const removeSubtitleHtml = (text: string): string => {
+    subtitleHtmlHelperElement ??= document.createElement('div');
+    subtitleHtmlHelperElement.innerHTML = text;
+    for (const element of subtitleHtmlHelperElement.querySelectorAll('br')) element.replaceWith('\n');
+    for (const element of subtitleHtmlHelperElement.querySelectorAll('rt, rp')) element.remove();
+    return subtitleHtmlHelperElement.textContent ?? subtitleHtmlHelperElement.innerText;
+};
+
+/** Counts visible subtitle graphemes, excluding markup, ruby annotations, whitespace, and formatting controls. */
+export const readableCharacterCount = (text: string): number => {
+    const readableText = removeSubtitleHtml(text).normalize('NFC');
+    let count = 0;
+    for (const { segment } of subtitleGraphemeSegmenter.segment(readableText)) {
+        if (!invisibleGraphemePattern.test(segment)) count++;
+    }
+    return count;
+};
 
 // Cues on the same track can share a start time (e.g. Netflix splitting one line into
 // multiple cues), and SubtitleCollection does not guarantee source order in that case, so
@@ -93,6 +118,15 @@ export function humanReadableTime(timestamp: number, nearestTenth = false, fully
 
         return minutes + 'm' + String(seconds).padStart(2, '0') + 's';
     }
+}
+
+export function formatAsSigned(value: number, decimalPlaces?: number): string {
+    const stringValue = decimalPlaces === undefined ? String(value) : value.toFixed(decimalPlaces);
+    return value >= 0 ? `+${stringValue}` : stringValue;
+}
+
+export function formatAsSignedMs(milliseconds: number): string {
+    return `${formatAsSigned(milliseconds)} ms`;
 }
 
 export function timeDurationDisplay(
@@ -433,6 +467,8 @@ export function computeStyles(
         color: subtitleColor,
         fontSize: `${subtitleSize}px`,
         fontWeight: String(subtitleThickness),
+        WebkitTextStroke: '0 transparent',
+        textShadow: 'none',
     };
 
     if (subtitleOutlineThickness > 0) {
@@ -749,7 +785,7 @@ export async function ensureStoragePersisted(): Promise<boolean | undefined> {
     if (!navigator.storage?.persist) return;
     if (await navigator.storage.persisted()) return true;
     const persisted = await navigator.storage.persist();
-    if (!persisted) console.warn('Storage could not be persisted, data may be cleared by the browser');
+    if (!persisted) asbWarn('storage', 'Storage could not be persisted, data may be cleared by the browser');
     return persisted;
 }
 
@@ -857,6 +893,7 @@ const subtitleModelComparators: SubtitleModelComparators = {
     originalStart: (a, b) => a === b,
     originalEnd: (a, b) => a === b,
     displayTime: (a, b) => a === b,
+    displayEndTime: (a, b) => a === b,
     track: (a, b) => a === b,
     index: (a, b) => a === b,
     tokenization: (a, b) => areTokenizationsEqual(a, b),

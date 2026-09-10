@@ -1,9 +1,9 @@
 import type { IndexedSubtitleModel } from '@project/common';
-import {
-    compilePlaybackTimeline,
-    type PlaybackTimelineActionIndex,
-    type PlaybackTimelineCompilation,
-    type PlaybackTimelineSubtitles,
+import { compilePlaybackTimeline } from '@project/common/playback/timeline/playback-timeline-compiler';
+import type {
+    PlaybackTimelineActionIndex,
+    PlaybackTimelineCompilation,
+    PlaybackTimelineSubtitles,
 } from '@project/common/playback/timeline/playback-timeline-compiler';
 
 export type PlaybackTimelineEdge = 'start' | 'end';
@@ -32,6 +32,8 @@ export interface PlaybackTimelineEndAction {
 
 export interface PlaybackTimelineBlock {
     readonly id: string;
+    /** Subtitle indexes that formed this playback-mode block. */
+    readonly subtitleIndexes: readonly number[];
     readonly playbackModeStartMs: number;
     /** Final included timestamp for end actions such as auto-pause and repeat. */
     readonly playbackModeEndMs: number;

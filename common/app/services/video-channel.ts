@@ -1,4 +1,5 @@
-import {
+import { asbError } from '@project/common/util';
+import type {
     AlertMessage,
     AnkiSettingsToVideoMessage,
     AppBarToggleMessageToVideoMessage,
@@ -19,13 +20,12 @@ import {
     OffsetFromVideoMessage,
     OffsetToVideoMessage,
     PauseFromVideoMessage,
+    PlaybackStateFromVideoMessage,
     PlaybackRateFromVideoMessage,
     PlaybackRateToVideoMessage,
     PlayFromVideoMessage,
-    PlayMode,
     PlayModeMessage,
     PlayModesMessage,
-    PostMineAction,
     ReadyFromVideoMessage,
     ReadyStateFromVideoMessage,
     ReadyToVideoMessage,
@@ -40,7 +40,8 @@ import {
     SaveTokenLocalToVideoMessage,
     IndexedSubtitleModel,
 } from '@project/common';
-import {
+import { PlayMode, PostMineAction } from '@project/common';
+import type {
     AnkiSettings,
     ApplyStrategy,
     MiscSettings,
@@ -48,16 +49,18 @@ import {
     TokenState,
     TokenStatus,
 } from '@project/common/settings';
-import { VideoProtocol } from './video-protocol';
+import type { VideoProtocol } from '@project/common/app/services/video-protocol';
 
 export default class VideoChannel {
     private readonly protocol: VideoProtocol;
     private time: number;
     private paused: boolean;
+    private latestPlaybackState?: PlaybackStateFromVideoMessage;
     private isReady: boolean;
     private readyCallbacks: ((paused: boolean) => void)[];
     private playCallbacks: ((echo: boolean) => void)[];
     private pauseCallbacks: ((echo: boolean) => void)[];
+    private playbackStateCallbacks: ((state: PlaybackStateFromVideoMessage) => void)[];
     private audioTrackSelectedCallbacks: ((audioTrack: string) => void)[];
     private currentTimeCallbacks: ((currentTime: number, echo: boolean) => void)[];
     private durationCallbacks: ((duration: number) => void)[];
@@ -115,6 +118,7 @@ export default class VideoChannel {
         this.readyCallbacks = [];
         this.playCallbacks = [];
         this.pauseCallbacks = [];
+        this.playbackStateCallbacks = [];
         this.currentTimeCallbacks = [];
         this.durationCallbacks = [];
         this.audioTrackSelectedCallbacks = [];
@@ -176,6 +180,16 @@ export default class VideoChannel {
                     this.paused = true;
                     for (const callback of this.pauseCallbacks) {
                         callback(pauseMessage.echo);
+                    }
+                    break;
+                }
+                case 'playbackState': {
+                    const playbackStateMessage = event.data as PlaybackStateFromVideoMessage;
+                    this.latestPlaybackState = playbackStateMessage;
+                    this.time = playbackStateMessage.timestampMs / 1000;
+                    this.paused = playbackStateMessage.paused;
+                    for (const callback of this.playbackStateCallbacks) {
+                        callback(playbackStateMessage);
                     }
                     break;
                 }
@@ -326,7 +340,7 @@ export default class VideoChannel {
                     break;
                 }
                 default:
-                    console.error('Unrecognized event ' + event.data.command);
+                    asbError('app/messages', 'Unrecognized event ' + event.data.command);
             }
         };
     }
@@ -372,6 +386,12 @@ export default class VideoChannel {
     onPause(callback: (echo: boolean) => void) {
         this.pauseCallbacks.push(callback);
         return () => this._remove(callback, this.pauseCallbacks);
+    }
+
+    onPlaybackState(callback: (state: PlaybackStateFromVideoMessage) => void) {
+        this.playbackStateCallbacks.push(callback);
+        if (this.latestPlaybackState !== undefined) callback(this.latestPlaybackState);
+        return () => this._remove(callback, this.playbackStateCallbacks);
     }
 
     onCurrentTime(callback: (currentTime: number, echo: boolean) => void) {
@@ -696,6 +716,8 @@ export default class VideoChannel {
         const {
             themeType,
             videoSubtitleSplitBehavior,
+            showSubtitleListMiningButton,
+            subtitleListTimestampDisplay,
             copyToClipboardOnMine,
             autoPausePreference,
             subtitleTriggerStartOffset,
@@ -714,6 +736,13 @@ export default class VideoChannel {
             fastForwardPlaybackMinimumSkipIntervalMs,
             streamingCondensedPlaybackMinimumSkipIntervalMs,
             repeatCountPreference,
+            autoPauseResumeMode,
+            autoPauseResumeDelayMs,
+            autoPauseFixedDurationMs,
+            autoPauseMinimumDurationMs,
+            autoPauseMaximumDurationMs,
+            autoPauseTimePerCharacterMs,
+            subtitleVisibility,
             rememberPlaybackModes,
             lastPlaybackModes,
             lastPlaybackPositions,
@@ -741,6 +770,8 @@ export default class VideoChannel {
             value: {
                 themeType,
                 videoSubtitleSplitBehavior,
+                showSubtitleListMiningButton,
+                subtitleListTimestampDisplay,
                 copyToClipboardOnMine,
                 autoPausePreference,
                 subtitleTriggerStartOffset,
@@ -759,6 +790,13 @@ export default class VideoChannel {
                 fastForwardPlaybackMinimumSkipIntervalMs,
                 streamingCondensedPlaybackMinimumSkipIntervalMs,
                 repeatCountPreference,
+                autoPauseResumeMode,
+                autoPauseResumeDelayMs,
+                autoPauseFixedDurationMs,
+                autoPauseMinimumDurationMs,
+                autoPauseMaximumDurationMs,
+                autoPauseTimePerCharacterMs,
+                subtitleVisibility,
                 rememberPlaybackModes,
                 lastPlaybackModes,
                 lastPlaybackPositions,
@@ -817,6 +855,8 @@ export default class VideoChannel {
         this.readyCallbacks = [];
         this.playCallbacks = [];
         this.pauseCallbacks = [];
+        this.playbackStateCallbacks = [];
+        this.latestPlaybackState = undefined;
         this.currentTimeCallbacks = [];
         this.audioTrackSelectedCallbacks = [];
         this.exitCallbacks = [];

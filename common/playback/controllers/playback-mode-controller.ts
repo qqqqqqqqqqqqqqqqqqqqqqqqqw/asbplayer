@@ -20,14 +20,104 @@ export interface PlaybackModeRememberSettings {
     readonly lastPlaybackModes: PlayMode[];
 }
 
+export const playbackModesSummaryNotificationKey = 'playback-modes-summary';
+export const playbackModeTransitionNotificationKey = 'playback-mode-transition';
+export const playbackModeNotificationJoin = ' | ';
+const playbackModesSummaryJoin = ' + ';
+
+type LazyLocalizableString = (localize: Localizer) => string;
+
+export interface PlaybackModeNotificationText {
+    readonly key: string;
+    readonly text: string | LazyLocalizableString;
+}
+
+export interface PlaybackModeNotificationFormatOptions {
+    readonly includeTransition?: boolean;
+    readonly summarySeparator?: string;
+}
+
+const playbackModeTransitionLocKey = (mode: PlayMode, enabled: boolean): string | undefined => {
+    switch (mode) {
+        case PlayMode.autoPause:
+            return enabled ? 'info.enabledAutoPause' : 'info.disabledAutoPause';
+        case PlayMode.condensed:
+            return enabled ? 'info.enabledCondensedPlayback' : 'info.disabledCondensedPlayback';
+        case PlayMode.fastForward:
+            return enabled ? 'info.enabledFastForwardPlayback' : 'info.disabledFastForwardPlayback';
+        case PlayMode.repeat:
+            return enabled ? 'info.enabledRepeatPlayback' : 'info.disabledRepeatPlayback';
+        default:
+            return;
+    }
+};
+
+export const playbackModeLabelLocKey = (mode: PlayMode): string => {
+    switch (mode) {
+        case PlayMode.normal:
+            return 'controls.normalMode';
+        case PlayMode.condensed:
+            return 'controls.condensedMode';
+        case PlayMode.autoPause:
+            return 'controls.autoPauseMode';
+        case PlayMode.fastForward:
+            return 'controls.fastForwardMode';
+        case PlayMode.repeat:
+            return 'controls.repeatMode';
+    }
+};
+
+const playbackModesForSummary: readonly PlayMode[] = [
+    PlayMode.condensed,
+    PlayMode.fastForward,
+    PlayMode.autoPause,
+    PlayMode.repeat,
+];
+
+type Localizer = (locKey: string) => string;
+
+export const formatPlaybackModeNotifications = (
+    transition: PlayModeTransition,
+    { includeTransition = true, summarySeparator = ': ' }: PlaybackModeNotificationFormatOptions = {}
+): PlaybackModeNotificationText[] => {
+    const enabledModes = playbackModesForSummary.filter((mode) => transition.modes.has(mode));
+    const notifications: PlaybackModeNotificationText[] = [
+        {
+            key: playbackModesSummaryNotificationKey,
+            text: (localize: Localizer) =>
+                `${localize('settings.playbackModes')}${summarySeparator}${
+                    enabledModes.length > 0
+                        ? enabledModes
+                              .map((mode) => localize(playbackModeLabelLocKey(mode)))
+                              .join(playbackModesSummaryJoin)
+                        : localize(playbackModeLabelLocKey(PlayMode.normal))
+                }`,
+        },
+    ];
+    if (!includeTransition) return notifications;
+
+    const transitionText = (localize: Localizer) =>
+        [
+            ...[...transition.removed].map((mode) => playbackModeTransitionLocKey(mode, false)),
+            ...[...transition.added].map((mode) => playbackModeTransitionLocKey(mode, true)),
+        ]
+            .filter((locKey): locKey is string => locKey !== undefined)
+            .map(localize)
+            .join(playbackModeNotificationJoin);
+    if (transitionText) {
+        notifications.push({
+            key: playbackModeTransitionNotificationKey,
+            text: transitionText,
+        });
+    }
+    return notifications;
+};
+
 export const playbackModesFromSettings = ({
     rememberPlaybackModes,
     lastPlaybackModes,
 }: PlaybackModeRememberSettings): Set<PlayMode> =>
     new Set(rememberPlaybackModes ? lastPlaybackModes : [PlayMode.normal]);
-
-export const hasEnabledPlaybackModes = (modes: ReadonlySet<PlayMode>): boolean =>
-    [...modes].some((mode) => mode !== PlayMode.normal);
 
 export const normalizePlaybackModes = (modes: ReadonlySet<PlayMode>): Set<PlayMode> => {
     const normalized = new Set(modes);
@@ -47,46 +137,14 @@ const modeChanges = (
     removed: new Set([...oldModes].filter((mode) => !newModes.has(mode))),
 });
 
-export const playbackModeNotifications = (
-    transition: PlayModeTransition
-): { notifications: string[]; join: string } => {
-    const getLocKey = (mode: PlayMode, enabled: boolean): string => {
-        switch (mode) {
-            case PlayMode.autoPause:
-                return enabled ? 'info.enabledAutoPause' : 'info.disabledAutoPause';
-            case PlayMode.condensed:
-                return enabled ? 'info.enabledCondensedPlayback' : 'info.disabledCondensedPlayback';
-            case PlayMode.fastForward:
-                return enabled ? 'info.enabledFastForwardPlayback' : 'info.disabledFastForwardPlayback';
-            case PlayMode.repeat:
-                return enabled ? 'info.enabledRepeatPlayback' : 'info.disabledRepeatPlayback';
-            default:
-                return 'info.disabledAllPlayModes';
-        }
-    };
-
-    const notifications: string[] = [];
-    for (const mode of transition.removed) {
-        if (mode === PlayMode.normal) continue;
-        notifications.push(getLocKey(mode, false));
-    }
-    for (const mode of transition.added) {
-        if (mode === PlayMode.normal) {
-            notifications.length = 0;
-            notifications.push(getLocKey(PlayMode.normal, true));
-            break;
-        }
-        notifications.push(getLocKey(mode, true));
-    }
-    return { notifications, join: ' | ' };
-};
-
 /** Coordinates playback-mode selection. */
 export default class PlaybackModeController {
     private modes: Set<PlayMode>;
+    private readonly playbackModesDisabled: boolean;
 
-    constructor(initialModes: ReadonlySet<PlayMode>) {
-        this.modes = normalizePlaybackModes(initialModes);
+    constructor(initialModes: ReadonlySet<PlayMode>, playbackModesDisabled: boolean) {
+        this.playbackModesDisabled = playbackModesDisabled;
+        this.modes = this.normalizeModes(initialModes);
     }
 
     get playModes(): Set<PlayMode> {
@@ -95,7 +153,7 @@ export default class PlaybackModeController {
 
     setModes(modes: ReadonlySet<PlayMode>): PlayModeTransition {
         const oldModes = this.playModes;
-        this.modes = normalizePlaybackModes(modes);
+        this.modes = this.normalizeModes(modes);
         const newModes = this.playModes;
         return {
             modes: newModes,
@@ -105,6 +163,13 @@ export default class PlaybackModeController {
 
     transition(targetMode: PlayMode): PlayModeTransition {
         const oldModes = this.playModes;
+        if (this.playbackModesDisabled) {
+            return {
+                modes: oldModes,
+                added: new Set(),
+                removed: new Set(),
+            };
+        }
 
         if (targetMode === PlayMode.normal) {
             this.modes = new Set([PlayMode.normal]);
@@ -121,5 +186,9 @@ export default class PlaybackModeController {
             modes,
             ...modeChanges(oldModes, modes),
         };
+    }
+
+    private normalizeModes(modes: ReadonlySet<PlayMode>): Set<PlayMode> {
+        return this.playbackModesDisabled ? new Set([PlayMode.normal]) : normalizePlaybackModes(modes);
     }
 }

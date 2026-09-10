@@ -1,7 +1,8 @@
-import TimingUpdateQueue, {
-    type InternalSeekCompletion,
-    type TimingDriver,
-    type TimingDriverCallbacks,
+import TimingUpdateQueue from '@project/common/playback/timing/timing-driver';
+import type {
+    InternalSeekCompletion,
+    TimingDriver,
+    TimingDriverCallbacks,
 } from '@project/common/playback/timing/timing-driver';
 
 const defaultFrameTimeMs = 1000 / 60;
@@ -34,6 +35,7 @@ export default class AnimationFrameTimingDriver implements TimingDriver {
             onTime: async () => {},
             onPlaybackStarted: async () => {},
             onPlaybackPaused: () => {},
+            onSeekStarted: () => {},
             onDiscontinuity: () => {},
             onCancel: () => {},
             onError: () => {},
@@ -145,6 +147,8 @@ export default class AnimationFrameTimingDriver implements TimingDriver {
         this.discontinuityPending = true;
         this.schedule();
     };
+
+    readonly onDurationChange = () => {};
 
     private readonly onTimeUpdate = () => {
         if (!this._bound) return;

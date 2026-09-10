@@ -1,8 +1,8 @@
-import { AsbplayerSettings, KeyBindName } from '../settings';
+import type { AsbplayerSettings, KeyBindName } from '@project/common/settings';
 import { useTranslation } from 'react-i18next';
 import { isMacOs } from 'react-device-detect';
 import { makeStyles, useTheme } from '@mui/styles';
-import { type Theme } from '@mui/material';
+import type { Theme } from '@mui/material';
 import { useOutsideClickListener } from '@project/common/hooks';
 import hotkeys from 'hotkeys-js';
 import Grid2 from '@mui/material/Grid2';
@@ -12,18 +12,89 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Switch from '@mui/material/Switch';
 import EditIcon from '@mui/icons-material/Edit';
-import SettingsTextField from './SettingsTextField';
-import NumericSettingInput from './NumericSettingInput';
-import { isFirefox } from '../browser-detection';
+import SettingsTextField from '@project/common/components/SettingsTextField';
+import NumericSettingInput from '@project/common/components/NumericSettingInput';
+import { isFirefox } from '@project/common/browser-detection';
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react';
-import KeyBindRelatedSetting from './KeyBindRelatedSetting';
+import KeyBindRelatedSetting from '@project/common/components/KeyBindRelatedSetting';
+import SettingsSection from '@project/common/components/SettingsSection';
 
-type AllKeyNames = KeyBindName | 'selectSubtitleTrack';
+export type KeyboardShortcutSection =
+    | 'subtitles'
+    | 'mining'
+    | 'playback'
+    | 'seek'
+    | 'playbackRate'
+    | 'subtitleOffset'
+    | 'annotation';
+
+export const keyboardShortcutSectionId = (section: KeyboardShortcutSection) => `${section}-key-bindings`;
+
+const keyboardShortcutSectionOrder: KeyboardShortcutSection[] = [
+    'subtitles',
+    'mining',
+    'playback',
+    'seek',
+    'playbackRate',
+    'subtitleOffset',
+    'annotation',
+];
+
+const keyBindSectionByName: { [key in KeyBindName]: KeyboardShortcutSection } = {
+    selectSubtitleTrack: 'subtitles',
+    toggleSubtitles: 'subtitles',
+    toggleVideoSubtitleTrack1: 'subtitles',
+    toggleVideoSubtitleTrack2: 'subtitles',
+    toggleVideoSubtitleTrack3: 'subtitles',
+    toggleAsbplayerSubtitleTrack1: 'subtitles',
+    toggleAsbplayerSubtitleTrack2: 'subtitles',
+    toggleAsbplayerSubtitleTrack3: 'subtitles',
+    unblurAsbplayerTrack1: 'subtitles',
+    unblurAsbplayerTrack2: 'subtitles',
+    unblurAsbplayerTrack3: 'subtitles',
+    moveBottomSubtitlesUp: 'subtitles',
+    moveBottomSubtitlesDown: 'subtitles',
+    moveTopSubtitlesUp: 'subtitles',
+    moveTopSubtitlesDown: 'subtitles',
+    copySubtitle: 'mining',
+    ankiExport: 'mining',
+    updateLastCard: 'mining',
+    exportCard: 'mining',
+    takeScreenshot: 'mining',
+    toggleRecording: 'mining',
+    toggleSidePanel: 'playback',
+    togglePlay: 'playback',
+    toggleAutoPause: 'playback',
+    toggleCondensedPlayback: 'playback',
+    toggleFastForwardPlayback: 'playback',
+    toggleRepeat: 'playback',
+    toggleSubtitleVisibility: 'playback',
+    cycleAutoPauseResumeMode: 'playback',
+    seekBackward: 'seek',
+    seekForward: 'seek',
+    seekToPreviousSubtitle: 'seek',
+    seekToNextSubtitle: 'seek',
+    seekToBeginningOfCurrentSubtitle: 'seek',
+    adjustOffsetToPreviousSubtitle: 'subtitleOffset',
+    adjustOffsetToNextSubtitle: 'subtitleOffset',
+    increaseOffset: 'subtitleOffset',
+    decreaseOffset: 'subtitleOffset',
+    resetOffset: 'subtitleOffset',
+    increasePlaybackRate: 'playbackRate',
+    decreasePlaybackRate: 'playbackRate',
+    markHoveredToken5: 'annotation',
+    markHoveredToken4: 'annotation',
+    markHoveredToken3: 'annotation',
+    markHoveredToken2: 'annotation',
+    markHoveredToken1: 'annotation',
+    markHoveredToken0: 'annotation',
+    toggleHoveredTokenIgnored: 'annotation',
+    openStatistics: 'annotation',
+};
 
 interface KeyBindProperties {
     label: string;
     boundViaBrowser: boolean;
-    id?: string;
     hide?: boolean;
     additionalControl?: React.ReactNode;
 }
@@ -217,8 +288,22 @@ interface Props {
     extensionInstalled?: boolean;
     extensionSupportsExportCardBind?: boolean;
     extensionSupportsSidePanel?: boolean;
+    extensionSupportsAutoPauseResume?: boolean;
     extensionSupportsSubtitleTrackSelectorInWebApp?: boolean;
     onOpenChromeExtensionShortcuts: () => void;
+}
+
+interface KeyboardShortcutSectionProps {
+    id: string;
+    label: string;
+}
+
+function KeyboardShortcutSection({ id, label }: KeyboardShortcutSectionProps) {
+    return (
+        <div id={id}>
+            <SettingsSection>{label}</SettingsSection>
+        </div>
+    );
 }
 
 const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
@@ -228,12 +313,43 @@ const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
     extensionInstalled,
     extensionSupportsExportCardBind,
     extensionSupportsSidePanel,
+    extensionSupportsAutoPauseResume,
     extensionSupportsSubtitleTrackSelectorInWebApp,
     onOpenChromeExtensionShortcuts,
 }) => {
     const { t } = useTranslation();
     const { seekDuration, alwaysPlayOnSubtitleRepeat, speedChangeStep, keyBindSet } = settings;
-    const keyBindProperties = useMemo<{ [key in AllKeyNames]: KeyBindProperties }>(
+    const sectionProperties = useMemo(
+        (): {
+            [key in KeyboardShortcutSection]: {
+                label: string;
+            };
+        } => ({
+            subtitles: {
+                label: t('settings.subtitles'),
+            },
+            mining: {
+                label: t('extension.settings.mining'),
+            },
+            playback: {
+                label: t('extension.settings.playback'),
+            },
+            seek: {
+                label: t('settings.seek'),
+            },
+            playbackRate: {
+                label: t('settings.playbackRate'),
+            },
+            subtitleOffset: {
+                label: t('controls.subtitleOffset'),
+            },
+            annotation: {
+                label: t('settings.annotation'),
+            },
+        }),
+        [t]
+    );
+    const keyBindProperties = useMemo<{ [key in KeyBindName]: KeyBindProperties }>(
         () => ({
             copySubtitle: { label: t('binds.copySubtitle'), boundViaBrowser: true },
             ankiExport: { label: t('binds.ankiExport'), boundViaBrowser: true },
@@ -268,11 +384,20 @@ const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
             toggleAutoPause: {
                 label: t('binds.toggleAutoPause'),
                 boundViaBrowser: false,
-                id: 'playback-mode-key-bindings',
             },
             toggleCondensedPlayback: { label: t('binds.toggleCondensedPlayback'), boundViaBrowser: false },
             toggleFastForwardPlayback: { label: t('binds.toggleFastForwardPlayback'), boundViaBrowser: false },
             toggleRepeat: { label: t('binds.toggleRepeat'), boundViaBrowser: false },
+            toggleSubtitleVisibility: {
+                label: t('binds.toggleSubtitleVisibility'),
+                boundViaBrowser: false,
+                hide: extensionInstalled && !extensionSupportsAutoPauseResume,
+            },
+            cycleAutoPauseResumeMode: {
+                label: t('binds.cycleAutoPauseResumeMode'),
+                boundViaBrowser: false,
+                hide: extensionInstalled && !extensionSupportsAutoPauseResume,
+            },
             toggleSubtitles: { label: t('binds.toggleSubtitles'), boundViaBrowser: false },
             toggleVideoSubtitleTrack1: { label: t('binds.toggleVideoSubtitleTrack1'), boundViaBrowser: false },
             toggleVideoSubtitleTrack2: { label: t('binds.toggleVideoSubtitleTrack2'), boundViaBrowser: false },
@@ -436,6 +561,7 @@ const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
             extensionInstalled,
             extensionSupportsSidePanel,
             extensionSupportsExportCardBind,
+            extensionSupportsAutoPauseResume,
             extensionSupportsSubtitleTrackSelectorInWebApp,
             onSettingChanged,
             seekDuration,
@@ -451,18 +577,33 @@ const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
         [settings.keyBindSet, onSettingChanged]
     );
 
-    return Object.keys(keyBindProperties).map((key) => {
-        const keyBindName = key as KeyBindName;
-        const properties = keyBindProperties[keyBindName];
+    const visibleKeyBindNames = keyboardShortcutSectionOrder.flatMap((section) =>
+        (Object.keys(keyBindProperties) as KeyBindName[]).filter(
+            (keyBindName) => keyBindSectionByName[keyBindName] === section && !keyBindProperties[keyBindName].hide
+        )
+    );
+    const renderedSections: React.ReactNode[] = [];
+    let previousSection: KeyboardShortcutSection | undefined;
 
-        if (properties.hide) {
-            return null;
+    for (const keyBindName of visibleKeyBindNames) {
+        const properties = keyBindProperties[keyBindName];
+        const section = keyBindSectionByName[keyBindName];
+
+        if (section !== previousSection) {
+            const sectionPropertiesForKey = sectionProperties[section];
+            renderedSections.push(
+                <KeyboardShortcutSection
+                    key={`${section}-section`}
+                    id={keyboardShortcutSectionId(section)}
+                    label={sectionPropertiesForKey.label}
+                />
+            );
+            previousSection = section;
         }
 
-        return (
-            <div key={key} id={properties.id}>
+        renderedSections.push(
+            <div key={keyBindName}>
                 <KeyBindField
-                    key={key}
                     label={properties.label}
                     keys={
                         extensionInstalled && properties.boundViaBrowser
@@ -476,7 +617,9 @@ const KeyboardShortcutsSettingsTab: React.FC<Props> = ({
                 {properties.additionalControl}
             </div>
         );
-    });
+    }
+
+    return renderedSections;
 };
 
 export default KeyboardShortcutsSettingsTab;

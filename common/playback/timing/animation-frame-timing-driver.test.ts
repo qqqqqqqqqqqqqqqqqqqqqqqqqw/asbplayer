@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
-import { type IndexedSubtitleModel } from '@project/common';
-import AnimationFrameTimingDriver, {
-    type AnimationFrameTimingSource,
-} from '@project/common/playback/timing/animation-frame-timing-driver';
+import type { IndexedSubtitleModel } from '@project/common';
+import AnimationFrameTimingDriver from '@project/common/playback/timing/animation-frame-timing-driver';
+import type { AnimationFrameTimingSource } from '@project/common/playback/timing/animation-frame-timing-driver';
 import Clock from '@project/common/playback/timing/clock';
 import { emptyTimingDriverCallbacks, makeTimeline } from '@project/common/playback/playback-test-utils';
 import PlaybackPlanExecutor from '@project/common/playback/plan/playback-plan-executor';
-import { type PlaybackPlan } from '@project/common/playback/plan/playback-plan';
+import type { PlaybackPlan } from '@project/common/playback/plan/playback-plan';
 import PlaybackTimelineCursor from '@project/common/playback/timeline/playback-timeline-cursor';
 import type { TimingDriverCallbacks } from '@project/common/playback/timing/timing-driver';
+import { SubtitleVisibility } from '@project/common/settings';
 
 class FakeAnimationFrames {
     private nextHandle = 1;
@@ -204,7 +204,7 @@ describe('AnimationFrameTimingDriver', () => {
             },
             animationFrames
         );
-        clock.setTime(2000);
+        clock.setTime(2000, { paused: !clock.running });
         clock.start();
         driver.bind();
 
@@ -215,7 +215,7 @@ describe('AnimationFrameTimingDriver', () => {
     it('refreshes persistent state after dropped animation frames', async () => {
         let nowMs = 500;
         const clock = new Clock(() => nowMs);
-        clock.setTime(nowMs);
+        clock.setTime(nowMs, { paused: !clock.running });
         const animationFrames = new FakeAnimationFrames();
         const timeline = makeTimeline(
             [
@@ -272,7 +272,7 @@ describe('AnimationFrameTimingDriver', () => {
         driver.bind();
         clock.start();
         await flush();
-        clock.setTime(5000);
+        clock.setTime(5000, { paused: !clock.running });
         animationFrames.present();
         await flush();
 
@@ -295,8 +295,31 @@ describe('AnimationFrameTimingDriver', () => {
         );
         driver.bind();
 
-        clock.setTime(3000);
+        clock.setTime(3000, { paused: !clock.running });
         animationFrames.present();
+
+        expect(discontinuities).toEqual([0, 3000]);
+        driver.unbind();
+    });
+
+    it('processes a paused seek while hidden', async () => {
+        const clock = new Clock(() => 0);
+        const animationFrames = new FakeAnimationFrames();
+        const discontinuities: number[] = [];
+        const driver = timingDriver(
+            clock,
+            {
+                onTime: async () => {},
+                onDiscontinuity: (timestampMs) => discontinuities.push(timestampMs),
+            },
+            animationFrames
+        );
+        setDocumentHidden(true);
+        driver.bind();
+
+        clock.setTime(3000, { paused: true });
+        animationFrames.timeUpdate();
+        await flush();
 
         expect(discontinuities).toEqual([0, 3000]);
         driver.unbind();
@@ -305,7 +328,7 @@ describe('AnimationFrameTimingDriver', () => {
     it('drives subtitle visibility without executing playback-mode actions', async () => {
         let nowMs = 0;
         const clock = new Clock(() => nowMs);
-        clock.setTime(500);
+        clock.setTime(500, { paused: !clock.running });
         const animationFrames = new FakeAnimationFrames();
         const subtitle: IndexedSubtitleModel = {
             text: 'one',
@@ -317,6 +340,7 @@ describe('AnimationFrameTimingDriver', () => {
             index: 0,
         };
         const plan: PlaybackPlan<IndexedSubtitleModel> = {
+            subtitleVisibility: SubtitleVisibility.whenDue,
             timelineSubtitles: {
                 durationMs: 3000,
                 blocks: [],
@@ -324,7 +348,6 @@ describe('AnimationFrameTimingDriver', () => {
             },
             playbackRate: 1,
         };
-        const showingSubtitles: string[][] = [];
         const playbackActions: string[] = [];
         const executor = new PlaybackPlanExecutor(plan, clock.time({ maxMs: Number.POSITIVE_INFINITY }), {
             play: async () => {},
@@ -338,7 +361,6 @@ describe('AnimationFrameTimingDriver', () => {
                 playbackActions.push('correct-auto-pause');
                 return { seekIssued: true };
             },
-            showingSubtitlesChanged: (showing) => showingSubtitles.push(showing.map(({ text }) => text)),
         });
         playbackActions.length = 0;
         const driver = timingDriver(
@@ -346,7 +368,7 @@ describe('AnimationFrameTimingDriver', () => {
             {
                 onTime: (timestampMs) => executor.update(timestampMs, { lookaheadTimestampMs: undefined }),
                 onDiscontinuity: (timestampMs) => {
-                    executor.reset(timestampMs, { includeAtTimestamp: false, cause: 'user-seek' });
+                    executor.handleDiscontinuity(timestampMs);
                 },
             },
             animationFrames
@@ -362,7 +384,10 @@ describe('AnimationFrameTimingDriver', () => {
         animationFrames.present();
         await flush();
 
-        expect(showingSubtitles).toEqual([['one'], []]);
+        expect([
+            executor.showingSubtitlesAt(1000).map(({ text }) => text),
+            executor.showingSubtitlesAt(2000).map(({ text }) => text),
+        ]).toEqual([['one'], []]);
         expect(playbackActions).toEqual([]);
         driver.unbind();
     });

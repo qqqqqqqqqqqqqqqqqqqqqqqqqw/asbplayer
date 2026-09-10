@@ -1,7 +1,7 @@
-import type { AnkiSettings, TokenState, TokenStatus } from '../settings/settings';
-import type { OnlineSubtitleSourceConfig } from '../global-state';
-import type { TokenStatusInfo } from '../dictionary-db';
-import type { PitchAccentPosition } from '../yomitan';
+import type { AnkiSettings, TokenState, TokenStatus } from '@project/common/settings/settings';
+import type { GenericParseType, OnlineSubtitleSourceConfig } from '@project/common/global-state';
+import type { TokenStatusInfo } from '@project/common/dictionary-db';
+import type { PitchAccentPosition } from '@project/common/yomitan';
 
 type Profile = { name: string };
 
@@ -55,6 +55,7 @@ export interface SubtitleModel {
     readonly originalStart: number;
     readonly originalEnd: number;
     readonly displayTime?: string;
+    readonly displayEndTime?: string;
     readonly track: number;
     readonly index?: number;
     readonly tokenization?: Tokenization;
@@ -64,8 +65,16 @@ export interface IndexedSubtitleModel extends SubtitleModel {
     readonly index: number;
 }
 
+export interface PlaybackState {
+    readonly timestampMs: number;
+    readonly showingSubtitleIndexes: readonly number[];
+    readonly hiddenSubtitleIndexes?: readonly number[];
+    readonly paused: boolean;
+}
+
 export interface DisplaySubtitleModel extends IndexedSubtitleModel {
     readonly displayTime: string;
+    readonly displayEndTime: string;
 }
 
 export interface TokenizedSubtitleModel extends IndexedSubtitleModel {
@@ -205,6 +214,7 @@ export interface VideoDataSubtitleTrackDef {
     url?: string | string[];
     file?: File;
     extension: string;
+    capturedDuringPlayback?: boolean;
 }
 
 export interface VideoDataSubtitleTrack extends VideoDataSubtitleTrackDef {
@@ -247,6 +257,9 @@ export interface VideoDataUiModel {
     settings: VideoDataUiSettings;
     hasSeenFtue: boolean;
     hideRememberTrackPreferenceToggle: boolean;
+    isGenericPage: boolean;
+    showGenericPageOption: boolean;
+    genericSubtitleParser: GenericParseType;
 }
 
 export interface SubtitleTrack {
@@ -326,7 +339,6 @@ export interface MobileOverlayModel {
     subtitlesAreVisible: boolean;
     themeType: 'dark' | 'light';
     playModes: PlayMode[];
-    playModeSelectorRequest?: number;
     overlayInstanceId?: string;
 }
 

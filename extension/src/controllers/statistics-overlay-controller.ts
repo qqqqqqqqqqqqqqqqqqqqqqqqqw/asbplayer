@@ -1,29 +1,33 @@
-import { CachingElementOverlay, OffsetAnchor } from '../services/element-overlay';
-import { frameColorScheme, frameColorSchemeClass } from '../services/frame-color-scheme';
-import UiFrame, { uiFrameForSrc } from '../services/ui-frame';
-import { type OpenStatisticsOverlayOneUncollectedDialogMessage } from '../ui/components/StatisticsOverlayUi';
-import { type UiState } from '../ui/components/StatisticsOverlayOneUncollectedUi';
-import {
+import { CachingElementOverlay, OffsetAnchor } from '@project/extension/src/services/element-overlay';
+import { frameColorScheme, frameColorSchemeClass } from '@project/extension/src/services/frame-color-scheme';
+import type UiFrame from '@project/extension/src/services/ui-frame';
+import { uiFrameForSrc } from '@project/extension/src/services/ui-frame';
+import type { OpenStatisticsOverlayOneUncollectedDialogMessage } from '@project/extension/src/ui/components/StatisticsOverlayUi';
+import type { UiState } from '@project/extension/src/ui/components/StatisticsOverlayOneUncollectedUi';
+import type {
     CloseStatisticsOverlayMessage,
     Command,
+    ElementExistsStatisticsOverlayMessage,
     Message,
     MoveStatisticsOverlayMessage,
     OpenStatisticsOverlayMessage,
     ResizeStatisticsOverlayMessage,
     StatisticsOverlayToTabCommand,
 } from '@project/common';
+import type Binding from '@/services/binding';
 
 type State = 'open' | 'fullscreen' | 'closed';
 
 export class StatisticsOverlayController {
     private static readonly _mobileOverlaySelector = '.asbplayer-mobile-video-overlay-container-top';
     private static readonly _overlayGap = 8;
+
+    private readonly _bindings: Binding[];
     private _messageListener?: (
         message: any,
         sender: Browser.runtime.MessageSender,
         sendResponse: (response?: any) => void
     ) => void;
-    private _windowMessageListener?: (event: MessageEvent) => void;
     private _overlay?: CachingElementOverlay;
     private _oneUncollectedDialogFrame?: UiFrame;
     private _height?: string;
@@ -41,14 +45,14 @@ export class StatisticsOverlayController {
     private _observedMobileOverlays = new Set<HTMLElement>();
     private _mobileOverlayLayoutListener = () => this._updateMobileOverlayOffset();
 
+    constructor(bindings: Binding[]) {
+        this._bindings = bindings;
+    }
+
     unbind() {
         if (this._messageListener !== undefined) {
             browser.runtime.onMessage.removeListener(this._messageListener);
             this._messageListener = undefined;
-        }
-        if (this._windowMessageListener !== undefined) {
-            window.removeEventListener('message', this._windowMessageListener);
-            this._windowMessageListener = undefined;
         }
         this._overlay?.dispose();
         this._overlay = undefined;
@@ -65,9 +69,13 @@ export class StatisticsOverlayController {
 
     bind() {
         this._setHeight('0px');
-        this._messageListener = (message: any) => {
+        this._messageListener = (
+            message: any,
+            sender: Browser.runtime.MessageSender,
+            sendResponse: (response?: any) => void
+        ) => {
             if (message.sender === 'asbplayer-statistics-overlay-to-tab') {
-                this._handleMessageFromOverlay(message);
+                this._handleMessageFromOverlay(message, sendResponse);
             } else {
                 this._handleMessage(message);
             }
@@ -82,21 +90,9 @@ export class StatisticsOverlayController {
         window.addEventListener('scroll', this._mobileOverlayLayoutListener);
         this._updateMobileOverlayOffset();
         browser.runtime.onMessage.addListener(this._messageListener);
-        this._windowMessageListener = (event: MessageEvent) => {
-            if (event.source === window) {
-                return;
-            }
-
-            if (event.data?.sender !== 'asbplayer-statistics-overlay-to-tab') {
-                return;
-            }
-
-            this._handleMessageFromOverlay(event.data);
-        };
-        window.addEventListener('message', this._windowMessageListener);
     }
 
-    private _handleMessageFromOverlay(message: any) {
+    private _handleMessageFromOverlay(message: any, sendResponse: (message?: any) => void) {
         const command = message as StatisticsOverlayToTabCommand<Message>;
 
         switch (command.message.command) {
@@ -148,6 +144,13 @@ export class StatisticsOverlayController {
             case 'resize-statistics-overlay': {
                 const resizeMessage = command.message as ResizeStatisticsOverlayMessage;
                 this._setWidth(`${resizeMessage.width + 50}px`);
+                break;
+            }
+            case 'element-exists': {
+                const elementExistsMessage = command.message as ElementExistsStatisticsOverlayMessage;
+                const exists =
+                    this._bindings.find((b) => b.registeredVideoSrc === elementExistsMessage.mediaId) !== undefined;
+                sendResponse?.(exists);
                 break;
             }
         }

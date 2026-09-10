@@ -1,4 +1,16 @@
 import {
+    asbError,
+    buildSubtitleTracks,
+    clampMediaTimestamp,
+    errorMessageFromVideo,
+    extractText,
+    seekWithNudge,
+    sourceString,
+    subtitleTimestampWithDelay,
+    surroundingSubtitlesAroundInterval,
+    timeDurationDisplay,
+} from '@project/common/util';
+import type {
     AckMessage,
     AnkiUiSavedState,
     AudioBase64Message,
@@ -6,24 +18,24 @@ import {
     CardSavedMessage,
     CardUpdatedMessage,
     CopySubtitleMessage,
-    cropAndResize,
     CurrentTimeFromVideoMessage,
     CurrentTimeToVideoMessage,
     EncodeMp3InServiceWorkerMessage,
     ExtensionSyncMessage,
     ImageCaptureParams,
     NotificationDialogMessage,
+    OffsetFromVideoMessage,
     NotifyErrorMessage,
     OffsetToVideoMessage,
     PauseFromVideoMessage,
+    PlaybackState,
+    PlaybackStateFromVideoMessage,
     PlaybackRateFromVideoMessage,
     PlaybackRateToVideoMessage,
     PlayFromVideoMessage,
     PlayMode,
     PlayModeMessage,
     PlayModesMessage,
-    PostMineAction,
-    PostMinePlayback,
     ReadyFromVideoMessage,
     ReadyStateFromVideoMessage,
     RecordMediaAndForwardSubtitleMessage,
@@ -36,17 +48,14 @@ import {
     ShowCardSelectUiMessage,
     StartRecordingAudioViaCaptureStreamMessage,
     StartRecordingAudioWithTimeoutViaCaptureStreamMessage,
-    StartRecordingErrorCode,
     StartRecordingMediaMessage,
     StartRecordingResponse,
     StopRecordingAudioMessage,
-    StopRecordingErrorCode,
     StopRecordingMediaMessage,
     StopRecordingResponse,
     SubtitleModel,
     SubtitlesToVideoMessage,
     TakeScreenshotFromExtensionMessage,
-    VideoDataUiOpenReason,
     VideoDisappearedMessage,
     VideoHeartbeatMessage,
     VideoToExtensionCommand,
@@ -55,59 +64,64 @@ import {
     DictionaryBuildAnkiCacheStateMessage,
     DictionaryBuildWaniKaniCacheStateMessage,
 } from '@project/common';
+import {
+    cropAndResize,
+    PostMineAction,
+    PostMinePlayback,
+    StartRecordingErrorCode,
+    StopRecordingErrorCode,
+    VideoDataUiOpenReason,
+} from '@project/common';
 import { adjacentSubtitle } from '@project/common/key-binder';
+import type { SeekableTracks } from '@project/common/settings';
 import {
     calculateOffsetTracksValue,
     calculateSeekableTracksValue,
     extractAnkiSettings,
     OffsetTracks,
     PauseOnHoverMode,
-    SeekableTracks,
     SettingsProvider,
     SubtitleListPreference,
-    defaultSettings,
+    isSaveOnlySettings,
 } from '@project/common/settings';
 import { SubtitleReader } from '@project/common/subtitle-reader';
-import { playbackModeNotifications } from '@project/common/playback/controllers/playback-mode-controller';
 import {
-    buildSubtitleTracks,
-    clampMediaTimestamp,
-    errorMessageFromVideo,
-    extractText,
-    seekWithNudge,
-    sourceString,
-    subtitleTimestampWithDelay,
-    surroundingSubtitlesAroundInterval,
-    timeDurationDisplay,
-} from '@project/common/util';
-import AnkiUiController from '../controllers/anki-ui-controller';
-import ControlsController from '../controllers/controls-controller';
-import DragController from '../controllers/drag-controller';
-import { MobileGestureController } from '../controllers/mobile-gesture-controller';
-import { MobileVideoOverlayController } from '../controllers/mobile-video-overlay-controller';
-import NotificationController from '../controllers/notification-controller';
-import SubtitleController from '../controllers/subtitle-controller';
-import BulkExportController from '../controllers/bulk-export-controller';
-import VideoDataSyncController from '../controllers/video-data-sync-controller';
-import AudioRecorder, { TimedRecordingInProgressError } from './audio-recorder';
+    formatPlaybackModeNotifications,
+    playbackModeNotificationJoin,
+} from '@project/common/playback/controllers/playback-mode-controller';
+import type {
+    PlaybackModeNotificationFormatOptions,
+    PlayModeTransition,
+} from '@project/common/playback/controllers/playback-mode-controller';
+import AnkiUiController from '@project/extension/src/controllers/anki-ui-controller';
+import ControlsController from '@project/extension/src/controllers/controls-controller';
+import DragController from '@project/extension/src/controllers/drag-controller';
+import { MobileGestureController } from '@project/extension/src/controllers/mobile-gesture-controller';
+import { MobileVideoOverlayController } from '@project/extension/src/controllers/mobile-video-overlay-controller';
+import NotificationController from '@project/extension/src/controllers/notification-controller';
+import SubtitleController from '@project/extension/src/controllers/subtitle-controller';
+import BulkExportController from '@project/extension/src/controllers/bulk-export-controller';
+import VideoDataSyncController from '@project/extension/src/controllers/video-data-sync-controller';
+import AudioRecorder, { TimedRecordingInProgressError } from '@project/extension/src/services/audio-recorder';
 import { isMobile } from '@project/common/device-detection/mobile';
-import { OffsetAnchor } from './element-overlay';
-import { ExtensionSettingsStorage } from './extension-settings-storage';
-import { i18nInit } from './i18n';
+import { OffsetAnchor } from '@project/extension/src/services/element-overlay';
+import { ExtensionSettingsStorage } from '@project/extension/src/services/extension-settings-storage';
+import { i18nInit } from '@project/extension/src/services/i18n';
 import i18n from 'i18next';
-import KeyBindings from './key-bindings';
-import { shouldShowUpdateAlert } from './update-alert';
+import KeyBindings from '@project/extension/src/services/key-bindings';
+import { shouldShowUpdateAlert } from '@project/extension/src/services/update-alert';
 import { bufferToBase64 } from '@project/common/base64';
-import { pgsParserWorkerFactory } from './pgs-parser-worker-factory';
+import { pgsParserWorkerFactory } from '@project/extension/src/services/pgs-parser-worker-factory';
 import { DictionaryProvider } from '@project/common/dictionary-db/dictionary-provider';
-import { ExtensionDictionaryStorage } from './extension-dictionary-storage';
+import { ExtensionDictionaryStorage } from '@project/extension/src/services/extension-dictionary-storage';
 import { HoveredToken } from '@project/common/annotations';
 import { v4 as uuidv4 } from 'uuid';
-import { debounced } from './debounced';
+import { debounced } from '@project/extension/src/services/debounced';
 import PlaybackEngine from '@project/common/playback/playback-engine';
 import type { SubtitleOffsetOptions } from '@project/common/playback/playback-engine';
 import VideoFrameTimingDriver from '@project/common/playback/timing/video-frame-timing-driver';
-import InterpolatedContentClock from './interpolated-content-clock';
+import InterpolatedContentClock from '@project/extension/src/services/interpolated-content-clock';
+import { mediaSourceIdentity } from '@project/extension/src/pages/util';
 
 let netflix = false;
 document.addEventListener('asbplayer-netflix-enabled', (e) => {
@@ -143,7 +157,7 @@ const startAudioRecordingErrorResponse: (e: any) => StartRecordingResponse = (e:
     if (e.name === 'NS_ERROR_FAILURE') {
         errorCode = StartRecordingErrorCode.drmProtected;
     } else {
-        console.error(e);
+        asbError('recording/audio', e);
         errorCode = StartRecordingErrorCode.other;
     }
 
@@ -171,7 +185,7 @@ export default class Binding {
     private _synced: boolean;
     private _syncedTimestamp?: number;
     private _lastSyncedLocation?: string;
-    private _lastLoadedMetadataVideoSrc: string;
+    private _lastLoadedMetadataMediaIdentity: unknown;
     private readonly _videoSrcChangesIndicateNewVideo: boolean;
 
     private _recordingState: RecordingState = RecordingState.notRecording;
@@ -251,7 +265,7 @@ export default class Binding {
     constructor(video: HTMLMediaElement, options: BindingOptions) {
         this.video = video;
         this._registeredVideoSrc = video.src || this._fallbackVideoSrc;
-        this._lastLoadedMetadataVideoSrc = this._registeredVideoSrc;
+        this._lastLoadedMetadataMediaIdentity = mediaSourceIdentity(video);
         this.hasPageScript = options.hasPageScript;
         this._videoSrcChangesIndicateNewVideo = options.videoSrcChangesIndicateNewVideo;
         this.dictionary = new DictionaryProvider(new ExtensionDictionaryStorage());
@@ -349,13 +363,44 @@ export default class Binding {
     }
 
     private notifyPlaybackRate(options: ReturnType<PlaybackEngine<IndexedSubtitleModel>['playbackRateChanged']>) {
-        if (!options.notify) return;
+        if (!options?.notify) return;
+        this.subtitleController.notification(options.notification);
+    }
+
+    cycleAutoPauseResumeMode(): void {
+        const notification = this.playbackEngine.cycleAutoPauseResumeMode();
+        if (notification === undefined) return;
         this.subtitleController.notification({
-            locKey: options.locKey,
-            replacements: {
-                rate: options.playbackRate.toFixed(1),
-            },
+            locKey: notification.locKey,
+            replacements: { value: i18n.t(notification.valueLocKey) },
         });
+    }
+
+    toggleSubtitleVisibility(): void {
+        const notification = this.playbackEngine.toggleSubtitleVisibility();
+        if (notification === undefined) return;
+        this.subtitleController.notification({
+            locKey: notification.locKey,
+            replacements: { value: i18n.t(notification.valueLocKey) },
+        });
+    }
+
+    private _handlePlaybackModesChanged(
+        transition: PlayModeTransition,
+        options: Omit<PlaybackModeNotificationFormatOptions, 'summarySeparator'> = {}
+    ): string | undefined {
+        this._notifyPlaybackModes(transition.modes);
+        if (!transition.added.size && !transition.removed.size) return;
+        this.mobileVideoOverlayController.setPlaybackModes(transition.modes);
+        void this.mobileVideoOverlayController.updateModel();
+        return formatPlaybackModeNotifications(transition, {
+            ...options,
+            summarySeparator: ':\n',
+        })
+            .map((notification) =>
+                typeof notification.text === 'string' ? notification.text : notification.text(i18n.t)
+            )
+            .join('\n');
     }
 
     subtitleFileName(track: number = 0) {
@@ -386,9 +431,11 @@ export default class Binding {
         const video = this.video as HTMLVideoElement;
         const subtitles = this.subtitleController.subtitles;
         return new PlaybackEngine({
-            settings: defaultSettings,
+            settingsProvider: this.settings,
+            appIntegration: true,
+            autoPauseCorrectionSuppressed: disneyPlus,
             subtitles,
-            ready: { settings: false },
+            playbackModesDisabled: false,
             playbackModesSuppressed: this.recordingMedia,
             playbackPositionKeys: this._playbackPositionKeys(
                 this._nonEmptyTrackIndexes(subtitles),
@@ -441,22 +488,13 @@ export default class Binding {
                     onSeeked: () => this.seekedListener?.(new Event('seeked')),
                     onPlaybackRateChanged: (playbackRate) => {
                         if (disneyPlus) this.disneyPlusClock.updateRate(playbackRate, performance.now());
-                        const command: VideoToExtensionCommand<PlaybackRateFromVideoMessage> = {
-                            sender: 'asbplayer-video',
-                            message: {
-                                command: 'playbackRate',
-                                value: playbackRate,
-                                echo: false,
-                            },
-                            src: this._registeredVideoSrc,
-                        };
-                        void browser.runtime.sendMessage(command);
+                        this._notifyPlaybackRateChanged(playbackRate);
 
                         this.notifyPlaybackRate(this.playbackEngine.playbackRateChanged(playbackRate));
                         void this.mobileVideoOverlayController.updateModel();
                     },
                     onDurationChanged: (durationMs) => this.playbackEngine.durationChanged(durationMs),
-                    onError: () => console.error(errorMessageFromVideo(this.video)),
+                    onError: () => asbError('video/binding', errorMessageFromVideo(this.video)),
                 }
             ),
             callbacks: {
@@ -472,7 +510,10 @@ export default class Binding {
                 },
                 setSubtitleOffset: (offset, options) =>
                     this.subtitleController.offset(offset, !options.notifyPlayer, this.offsetTracks),
-                showingSubtitlesChanged: (subtitles) => this.subtitleController.showingSubtitlesChanged(subtitles),
+                playbackStateChanged: (state) => {
+                    this.subtitleController.playbackStateChanged(state);
+                    this._notifyPlaybackState(state);
+                },
                 playbackPositionChanged: (position) => {
                     if (position === undefined) {
                         this.notificationController.hide();
@@ -493,6 +534,7 @@ export default class Binding {
                     void this.settings
                         .set(settings)
                         .then(() => {
+                            if (isSaveOnlySettings(settings)) return;
                             const settingsUpdatedCommand: VideoToExtensionCommand<SettingsUpdatedMessage> = {
                                 sender: 'asbplayer-video',
                                 message: { command: 'settings-updated' },
@@ -500,20 +542,31 @@ export default class Binding {
                             };
                             return browser.runtime.sendMessage(settingsUpdatedCommand);
                         })
-                        .catch(console.error);
+                        .catch((error) => asbError('video/binding', error));
                 },
                 playbackModesChanged: (transition) => {
-                    this._notifyPlaybackModes(transition.modes);
-                    if (!transition.added.size && !transition.removed.size) return;
-
-                    const { notifications, join } = playbackModeNotifications(transition);
-                    if (notifications.length) {
-                        this.subtitleController.notification({ text: notifications.map((n) => i18n.t(n)).join(join) });
-                    }
-                    this.mobileVideoOverlayController.setPlaybackModes(transition.modes);
-                    this.mobileVideoOverlayController.showPlaybackModes();
+                    const notification = this._handlePlaybackModesChanged(transition);
+                    if (notification) this.subtitleController.notification({ text: notification });
                 },
-                onError: (error) => console.error('Playback plan update failed', error),
+                initialPlaybackSettingsChanged: (settings) => {
+                    this._notifySubtitleOffset(settings.subtitleOffset);
+                    const notifications = settings.notifications.offsetAndRate.map((notification) =>
+                        notification.type === 'message'
+                            ? notification.message
+                            : i18n.t(notification.notification.locKey, notification.notification.replacements)
+                    );
+                    const playbackMode = this._handlePlaybackModesChanged(settings.playbackModeTransition, {
+                        includeTransition: false,
+                    });
+                    if (playbackMode) notifications.push(playbackMode);
+                    if (notifications.length) {
+                        this.subtitleController.notification({
+                            text: notifications.join(playbackModeNotificationJoin),
+                            autoHideDuration: settings.autoHideDuration,
+                        });
+                    }
+                },
+                onError: (error) => asbError('video/binding', 'Playback plan update failed', error),
             },
         });
     }
@@ -524,6 +577,43 @@ export default class Binding {
             message: {
                 command: 'playModes',
                 playModes: [...modes],
+            },
+            src: this._registeredVideoSrc,
+        };
+        void browser.runtime.sendMessage(command);
+    }
+
+    private _notifySubtitleOffset(offset: number): void {
+        const command: VideoToExtensionCommand<OffsetFromVideoMessage> = {
+            sender: 'asbplayer-video',
+            message: {
+                command: 'offset',
+                value: offset,
+            },
+            src: this._registeredVideoSrc,
+        };
+        void browser.runtime.sendMessage(command);
+    }
+
+    private _notifyPlaybackRateChanged(playbackRate: number): void {
+        const command: VideoToExtensionCommand<PlaybackRateFromVideoMessage> = {
+            sender: 'asbplayer-video',
+            message: {
+                command: 'playbackRate',
+                value: playbackRate,
+                echo: false,
+            },
+            src: this._registeredVideoSrc,
+        };
+        void browser.runtime.sendMessage(command);
+    }
+
+    private _notifyPlaybackState(state: PlaybackState): void {
+        const command: VideoToExtensionCommand<PlaybackStateFromVideoMessage> = {
+            sender: 'asbplayer-video',
+            message: {
+                command: 'playbackState',
+                ...state,
             },
             src: this._registeredVideoSrc,
         };
@@ -562,7 +652,7 @@ export default class Binding {
         this._notifyReady();
         this._subscribe();
         void this._refreshSettings().then(() => {
-            void this.videoDataSyncController.requestSubtitles({ videoChanged: false });
+            void this.videoDataSyncController.requestSubtitles({ kind: 'reload', videoChanged: false });
         });
         this.subtitleController.bind();
         this.playbackEngine.bind();
@@ -712,15 +802,16 @@ export default class Binding {
         if (this.hasPageScript) {
             const debouncedChangeListener = debounced(
                 (videoChanged: boolean) => {
-                    void this.videoDataSyncController.requestSubtitles({ videoChanged });
+                    void this.videoDataSyncController.requestSubtitles({ kind: 'reload', videoChanged });
                     this._resetSubtitles();
                 },
                 disneyPlus ? 1000 : 0
             );
             this.videoChangeListener = () => {
+                const mediaIdentity = mediaSourceIdentity(this.video);
+                const sourceChanged = !Object.is(mediaIdentity, this._lastLoadedMetadataMediaIdentity);
+                this._lastLoadedMetadataMediaIdentity = mediaIdentity;
                 const videoSrc = this.video.src || this._fallbackVideoSrc;
-                const sourceChanged = videoSrc !== this._lastLoadedMetadataVideoSrc;
-                this._lastLoadedMetadataVideoSrc = videoSrc;
                 this._updateRegisteredVideoSrc(videoSrc);
                 const sameLocationVideoChanged = this._videoSrcChangesIndicateNewVideo && sourceChanged;
 
@@ -1016,9 +1107,9 @@ export default class Binding {
                         break;
                     case 'screenshot-taken': {
                         const screenshotTakenMessage = request.message as ScreenshotTakenMessage;
+                        this.controlsController.show();
                         this.subtitleController.forceHideSubtitles = false;
                         this.mobileVideoOverlayController.forceHide = false;
-                        this.controlsController.show();
 
                         if (!this.recordingMedia && screenshotTakenMessage.ankiUiState) {
                             void this.ankiUiController.showAfterRetakingScreenshot(
@@ -1112,7 +1203,7 @@ export default class Binding {
                                 if (e instanceof TimedRecordingInProgressError) {
                                     errorCode = StopRecordingErrorCode.timedAudioRecordingInProgress;
                                 } else {
-                                    console.error(e);
+                                    asbError('recording/audio', e);
                                     errorCode = StopRecordingErrorCode.other;
                                 }
 
@@ -1173,6 +1264,8 @@ export default class Binding {
     }
 
     async _refreshSettings() {
+        const activeProfile = (await this.settings.activeProfile())?.name;
+        this.playbackEngine.profileChanged(activeProfile);
         const currentSettings = await this.settings.getAll();
         this.playbackEngine.settingsChanged(currentSettings);
         this._seekDurationMs = currentSettings.seekDuration * 1000;
@@ -1624,7 +1717,7 @@ export default class Binding {
                                     await this.video.play();
                                     break;
                                 } catch (ex2) {
-                                    console.error(ex2);
+                                    asbError('video/binding', ex2);
                                 }
                             }
 
@@ -1708,16 +1801,12 @@ export default class Binding {
             streamingSubtitleListPreference,
             subtitleRegexFilter,
             subtitleRegexFilterTextReplacement,
-            rememberSubtitleOffset,
-            lastSubtitleOffset,
             subtitleHtml,
             convertNetflixRuby: convertNetflixRuby,
         } = await this.settings.get([
             'streamingSubtitleListPreference',
             'subtitleRegexFilter',
             'subtitleRegexFilterTextReplacement',
-            'rememberSubtitleOffset',
-            'lastSubtitleOffset',
             'subtitleHtml',
             'convertNetflixRuby',
         ]);
@@ -1753,8 +1842,7 @@ export default class Binding {
                     convertNetflixRuby: convertNetflixRuby,
                     pgsParserWorkerFactory: pgsParserWorkerFactory,
                 });
-                const userOffset = rememberSubtitleOffset ? lastSubtitleOffset : 0;
-                const offset = userOffset;
+                const offset = this.playbackEngine.lastSubtitleOffset;
                 const subtitles = await reader.subtitles(files, flatten);
 
                 // Order is important: sync with tab first, then update our subtitle controller
@@ -1769,7 +1857,7 @@ export default class Binding {
                 try {
                     await syncWithAsbplayerTab(withSyncedAsbplayerOnly, syncWithAsbplayerId);
                 } catch (error) {
-                    console.error('Failed to sync with asbplayer tab when loading subtitles:', error);
+                    asbError('video/binding', 'Failed to sync with asbplayer tab when loading subtitles:', error);
                 }
 
                 this._updateSubtitles(

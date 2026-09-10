@@ -1,15 +1,17 @@
 import { describe, expect, it } from '@jest/globals';
 import { PlayMode } from '@project/common';
 import PlaybackModeController, {
-    hasEnabledPlaybackModes,
-    playbackModeNotifications,
+    formatPlaybackModeNotifications,
+    playbackModesSummaryNotificationKey,
+    playbackModeTransitionNotificationKey,
     playbackModesFromSettings,
 } from '@project/common/playback/controllers/playback-mode-controller';
+import type { PlaybackModeNotificationText } from '@project/common/playback/controllers/playback-mode-controller';
 
 const sortedModes = (modes: Set<PlayMode>) => [...modes].sort((left, right) => left - right);
 
 function controllerWithModes(...modes: PlayMode[]) {
-    return new PlaybackModeController(new Set(modes));
+    return new PlaybackModeController(new Set(modes), false);
 }
 
 interface ModeSelectionCase {
@@ -66,16 +68,17 @@ const modeSelectionCases: ModeSelectionCase[] = [
     },
 ];
 
-describe('playback mode selection', () => {
-    it.each([
-        { name: 'no modes', modes: [], expected: false },
-        { name: 'normal mode only', modes: [PlayMode.normal], expected: false },
-        { name: 'one enabled mode', modes: [PlayMode.repeat], expected: true },
-        { name: 'two enabled modes', modes: [PlayMode.autoPause, PlayMode.repeat], expected: true },
-    ])('reports whether $name should be shown on first load', ({ modes, expected }) => {
-        expect(hasEnabledPlaybackModes(new Set(modes))).toBe(expected);
-    });
+const resolvePlaybackModeNotificationText = (
+    text: PlaybackModeNotificationText['text'],
+    localizer: (locKey: string) => string
+) => (typeof text === 'string' ? text : text(localizer));
 
+const resolvePlaybackModeNotifications = (
+    notifications: PlaybackModeNotificationText[],
+    localizer: (locKey: string) => string
+) => notifications.map(({ key, text }) => ({ key, text: resolvePlaybackModeNotificationText(text, localizer) }));
+
+describe('playback mode selection', () => {
     it.each([
         {
             name: 'remembering disabled with two stored modes',
@@ -97,7 +100,8 @@ describe('playback mode selection', () => {
         },
     ])('selects startup modes for $name', ({ rememberPlaybackModes, lastPlaybackModes, expected }) => {
         const controller = new PlaybackModeController(
-            playbackModesFromSettings({ rememberPlaybackModes, lastPlaybackModes })
+            playbackModesFromSettings({ rememberPlaybackModes, lastPlaybackModes }),
+            false
         );
 
         expect(sortedModes(controller.playModes)).toEqual(expected);
@@ -117,6 +121,14 @@ describe('playback mode selection', () => {
 
         expect(sortedModes(empty.playModes)).toEqual([PlayMode.normal]);
         expect(sortedModes(mixed.playModes)).toEqual([PlayMode.autoPause, PlayMode.repeat]);
+    });
+
+    it('keeps playback modes normal when disabled', () => {
+        const controller = new PlaybackModeController(new Set([PlayMode.repeat]), true);
+
+        expect(sortedModes(controller.playModes)).toEqual([PlayMode.normal]);
+        expect(sortedModes(controller.setModes(new Set([PlayMode.repeat])).modes)).toEqual([PlayMode.normal]);
+        expect(sortedModes(controller.transition(PlayMode.repeat).modes)).toEqual([PlayMode.normal]);
     });
 
     it('returns defensive mode snapshots', () => {
@@ -158,9 +170,79 @@ describe('playback mode selection', () => {
     it('does not report normal mode being disabled when enabling fast-forward', () => {
         const controller = controllerWithModes(PlayMode.normal);
 
-        expect(playbackModeNotifications(controller.transition(PlayMode.fastForward)).notifications).toEqual([
-            'info.enabledFastForwardPlayback',
+        const transition = controller.transition(PlayMode.fastForward);
+
+        expect(transition).toMatchObject({
+            added: new Set([PlayMode.fastForward]),
+            removed: new Set([PlayMode.normal]),
+        });
+
+        let localize = (locKey: string) =>
+            ({
+                'settings.playbackModes': 'Playback Modes',
+                'controls.normalMode': 'Normal',
+                'controls.condensedMode': 'Condensed',
+                'controls.autoPauseMode': 'Auto-pause',
+                'controls.fastForwardMode': 'Fast-forward',
+                'controls.repeatMode': 'Repeat',
+            })[locKey] ?? locKey;
+        expect(resolvePlaybackModeNotifications(formatPlaybackModeNotifications(transition), localize)).toEqual([
+            {
+                key: playbackModesSummaryNotificationKey,
+                text: 'Playback Modes: Fast-forward',
+            },
+            {
+                key: playbackModeTransitionNotificationKey,
+                text: 'info.enabledFastForwardPlayback',
+            },
         ]);
+
+        localize = (locKey: string) =>
+            ({
+                'settings.playbackModes': 'Playback Modes',
+                'controls.normalMode': 'Normal',
+                'controls.fastForwardMode': 'Fast-forward',
+            })[locKey] ?? locKey;
+        expect(
+            resolvePlaybackModeNotifications(
+                formatPlaybackModeNotifications(
+                    transition,
+
+                    { includeTransition: false }
+                ),
+                localize
+            )
+        ).toEqual([{ key: playbackModesSummaryNotificationKey, text: 'Playback Modes: Fast-forward' }]);
+    });
+
+    it('shows active modes and falls back to normal', () => {
+        const localize = (locKey: string) =>
+            ({
+                'settings.playbackModes': 'Playback Modes',
+                'controls.normalMode': 'Normal',
+                'controls.condensedMode': 'Condensed',
+                'controls.autoPauseMode': 'Auto-pause',
+                'controls.fastForwardMode': 'Fast-forward',
+                'controls.repeatMode': 'Repeat',
+            })[locKey] ?? locKey;
+
+        const activeModes = {
+            modes: new Set([PlayMode.condensed, PlayMode.repeat]),
+            added: new Set<PlayMode>(),
+            removed: new Set<PlayMode>(),
+        };
+        const normalModes = {
+            modes: new Set([PlayMode.normal]),
+            added: new Set<PlayMode>(),
+            removed: new Set<PlayMode>(),
+        };
+
+        expect(
+            resolvePlaybackModeNotificationText(formatPlaybackModeNotifications(activeModes)[0].text, localize)
+        ).toBe('Playback Modes: Condensed + Repeat');
+        expect(
+            resolvePlaybackModeNotificationText(formatPlaybackModeNotifications(normalModes)[0].text, localize)
+        ).toBe('Playback Modes: Normal');
     });
 
     it('preserves non-conflicting modes over multiple toggles', () => {
@@ -208,7 +290,22 @@ describe('playback mode selection', () => {
             added: new Set([PlayMode.normal]),
             removed: new Set([PlayMode.fastForward, PlayMode.repeat]),
         });
-        expect(playbackModeNotifications(transition).notifications).toEqual(['info.disabledAllPlayModes']);
+        const localize = (locKey: string) =>
+            ({
+                'settings.playbackModes': 'Playback Modes',
+                'controls.normalMode': 'Normal',
+                'controls.fastForwardMode': 'Fast-forward',
+                'controls.repeatMode': 'Repeat',
+                'info.disabledFastForwardPlayback': 'Fast-forward playback: Off',
+                'info.disabledRepeatPlayback': 'Repeat playback: Off',
+            })[locKey] ?? locKey;
+        expect(resolvePlaybackModeNotifications(formatPlaybackModeNotifications(transition), localize)).toEqual([
+            { key: playbackModesSummaryNotificationKey, text: 'Playback Modes: Normal' },
+            {
+                key: playbackModeTransitionNotificationKey,
+                text: 'Fast-forward playback: Off | Repeat playback: Off',
+            },
+        ]);
     });
 
     it('replaces a single non-normal mode when normal is selected', () => {

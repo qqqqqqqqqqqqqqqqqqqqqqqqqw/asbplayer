@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('../services/ui-frame', () => ({
+jest.mock('@project/extension/src/services/ui-frame', () => ({
     __esModule: true,
     default: class UiFrame {},
     uiFrameForSrc: jest.fn(),
 }));
 
-import { StatisticsOverlayController } from './statistics-overlay-controller';
+import { StatisticsOverlayController } from '@project/extension/src/controllers/statistics-overlay-controller';
 
 describe('StatisticsOverlayController mobile overlay positioning', () => {
     const runtimeListeners = new Set<(message: any, sender: any, sendResponse: (response?: any) => void) => void>();
@@ -73,7 +73,7 @@ describe('StatisticsOverlayController mobile overlay positioning', () => {
     };
 
     it('moves below a visible top mobile overlay and returns when it is removed', async () => {
-        const controller = new StatisticsOverlayController();
+        const controller = new StatisticsOverlayController([]);
         controller.bind();
         openStatistics();
 
@@ -92,7 +92,7 @@ describe('StatisticsOverlayController mobile overlay positioning', () => {
     });
 
     it('keeps a deliberate stats movement after the mobile overlay is removed', async () => {
-        const controller = new StatisticsOverlayController();
+        const controller = new StatisticsOverlayController([]);
         controller.bind();
         openStatistics();
 
@@ -124,7 +124,7 @@ describe('StatisticsOverlayController mobile overlay positioning', () => {
 
     it('uses a transparent dark color scheme for the overlay iframe', () => {
         document.documentElement.style.colorScheme = 'dark';
-        const controller = new StatisticsOverlayController();
+        const controller = new StatisticsOverlayController([]);
         controller.bind();
         openStatistics();
 

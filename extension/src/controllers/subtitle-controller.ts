@@ -1,15 +1,16 @@
-import {
+import type {
     CopyToClipboardMessage,
     OffsetFromVideoMessage,
     SubtitlesUpdatedFromVideoMessage,
     SubtitleModel,
-    SubtitleHtml,
     VideoToExtensionCommand,
     Fetcher,
     HttpPostMessage,
     IndexedSubtitleModel,
+    PlaybackState,
 } from '@project/common';
-import {
+import { SubtitleHtml } from '@project/common';
+import type {
     AutoCopyableTracks,
     DictionaryTrack,
     OffsetTracks,
@@ -17,6 +18,8 @@ import {
     SubtitleAlignment,
     SubtitleSettings,
     TextSubtitleSettings,
+} from '@project/common/settings';
+import {
     allTextSubtitleSettings,
     calculateAutoCopyableTracksValue,
     calculateOffsetTracksValue,
@@ -24,25 +27,21 @@ import {
     isTrackOffsetAffected,
     tokenAnnotationStyleValues,
 } from '@project/common/settings';
-import { SubtitleCollectionOptions } from '@project/common/subtitle-collection';
+import type { SubtitleCollectionOptions } from '@project/common/subtitle-collection';
 import { renderRichTextOntoSubtitles, getAnnotationsHtml, SubtitleAnnotations } from '@project/common/annotations';
 import {
     arrayEquals,
     compareSubtitlesForDisplay,
     computeStyleString,
+    formatAsSignedMs,
     surroundingSubtitles,
 } from '@project/common/util';
 import i18n from 'i18next';
-import {
-    CachingElementOverlay,
-    ElementOverlay,
-    ElementOverlayParams,
-    KeyedHtml,
-    OffsetAnchor,
-} from '../services/element-overlay';
+import type { ElementOverlay, ElementOverlayParams, KeyedHtml } from '@project/extension/src/services/element-overlay';
+import { CachingElementOverlay, OffsetAnchor } from '@project/extension/src/services/element-overlay';
 import { v4 as uuidv4 } from 'uuid';
-import { DictionaryProvider } from '@project/common/dictionary-db';
-import Binding from '@/services/binding';
+import type { DictionaryProvider } from '@project/common/dictionary-db';
+import type Binding from '@/services/binding';
 
 const BOUNDING_BOX_PADDING = 25;
 
@@ -237,21 +236,29 @@ export default class SubtitleController {
     }
 
     setSubtitleSettings(newSubtitleSettings: SubtitleSettings) {
+        const imageScaleChanged =
+            this.subtitleSettings?.imageBasedSubtitleScaleFactor !== newSubtitleSettings.imageBasedSubtitleScaleFactor;
+        this.subtitleSettings = newSubtitleSettings;
         const styles = this._computeStyles(newSubtitleSettings);
         const classes = this._computeClasses(newSubtitleSettings);
-        if (
+        const textAppearanceChanged =
             this.subtitleStyles === undefined ||
             !arrayEquals(styles, this.subtitleStyles, (a, b) => a === b) ||
             this.subtitleClasses === undefined ||
-            !arrayEquals(classes, this.subtitleClasses, (a, b) => a === b)
-        ) {
+            !arrayEquals(classes, this.subtitleClasses, (a, b) => a === b);
+        if (textAppearanceChanged || imageScaleChanged) {
             this.subtitleStyles = styles;
             this.subtitleClasses = classes;
             this.cacheHtml();
         }
 
         const newAlignments = allTextSubtitleSettings(newSubtitleSettings).map((s) => s.subtitleAlignment);
-        if (!arrayEquals(newAlignments, Object.values(this.subtitleTrackAlignments), (a, b) => a === b)) {
+        const alignmentChanged = !arrayEquals(
+            newAlignments,
+            Object.values(this.subtitleTrackAlignments),
+            (a, b) => a === b
+        );
+        if (alignmentChanged) {
             this.subtitleTrackAlignments = newAlignments;
             this.shouldRenderBottomOverlay = Object.values(this.subtitleTrackAlignments).includes('bottom');
             this.shouldRenderTopOverlay = Object.values(this.subtitleTrackAlignments).includes('top');
@@ -267,8 +274,10 @@ export default class SubtitleController {
         }
 
         this.unblurredSubtitleTracks = {};
-
-        this.subtitleSettings = newSubtitleSettings;
+        if (textAppearanceChanged || imageScaleChanged || alignmentChanged) {
+            this.refreshCurrentSubtitle = true;
+            this.refreshShowingSubtitles();
+        }
     }
 
     private _computeStyles(settings: SubtitleSettings) {
@@ -412,8 +421,12 @@ export default class SubtitleController {
         this.subtitleAnnotations.bind();
     }
 
-    showingSubtitlesChanged(subtitles: readonly IndexedSubtitleModel[]): void {
-        this.timelineShowingSubtitles = subtitles;
+    playbackStateChanged(state: PlaybackState): void {
+        const hiddenSubtitleIndexes = state.hiddenSubtitleIndexes ?? [];
+        this.timelineShowingSubtitles = state.showingSubtitleIndexes
+            .filter((index) => !hiddenSubtitleIndexes.includes(index))
+            .map((index) => this.subtitles[index])
+            .filter((subtitle): subtitle is IndexedSubtitleModel => subtitle !== undefined);
         this.refreshShowingSubtitles();
     }
 
@@ -530,17 +543,16 @@ export default class SubtitleController {
             return {
                 html: () => {
                     if (subtitle.textImage) {
-                        const className = this.subtitleClasses?.[subtitle.track] ?? '';
-                        const imageScale =
+                        const className = this._subtitleClasses(subtitle.track);
+                        const widthRatio =
                             ((this.subtitleSettings?.imageBasedSubtitleScaleFactor ?? 1) *
-                                this.context.video.getBoundingClientRect().width) /
+                                subtitle.textImage.image.width) /
                             subtitle.textImage.screen.width;
-                        const width = imageScale * subtitle.textImage.image.width;
 
                         return `
                             <div data-track="${
                                 subtitle.track ?? 0
-                            }" style="max-width:${width}px;margin:auto;" class="${className}"}">
+                            }" data-asb-video-width-ratio="${widthRatio}" style="max-width:100%;margin:auto;" class="${className}">
                                 <img
                                     style="width:100%;"
                                     alt="subtitle"
@@ -650,6 +662,7 @@ export default class SubtitleController {
         }
 
         const previousOffset = this._computeOffset();
+        if (previousOffset === offset) return;
 
         this.subtitles = this.subtitles.map((s) => {
             if (offsetTracks !== undefined && !isTrackOffsetAffected(offsetTracks, s.track)) {
@@ -702,17 +715,19 @@ export default class SubtitleController {
 
     private _formatOffset(offset: number): string {
         const roundedOffset = Math.floor(offset);
-        return roundedOffset >= 0 ? '+' + roundedOffset + ' ms' : roundedOffset + ' ms';
+        return formatAsSignedMs(roundedOffset);
     }
 
     notification({
         replacements,
         locKey,
         text,
+        autoHideDuration = 3000,
     }: {
         replacements?: { [key: string]: string };
         locKey?: string;
         text?: string;
+        autoHideDuration?: number;
     }) {
         if (!text && !locKey) {
             return;
@@ -728,7 +743,7 @@ export default class SubtitleController {
         this.notificationElementOverlayHideTimeout = setTimeout(() => {
             this.notificationElementOverlay.hide();
             this.notificationElementOverlayHideTimeout = undefined;
-        }, 3000);
+        }, autoHideDuration);
     }
 
     showLoadedMessage(nonEmptyTrackIndex: number[]) {
@@ -795,11 +810,8 @@ export default class SubtitleController {
     }
 
     private _subtitleClasses(track?: number) {
-        if (track === undefined || this.subtitleClasses === undefined) {
-            return '';
-        }
-
-        return this.subtitleClasses[track] ?? this.subtitleClasses;
+        if (track === undefined || this.subtitleClasses === undefined) return '';
+        return this.subtitleClasses[track] ?? this.subtitleClasses[0] ?? '';
     }
 
     private _subtitleStyles(track?: number) {

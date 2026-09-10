@@ -12,6 +12,8 @@ import {
     ensureStoragePersisted,
     extractText,
     filterAsync,
+    formatAsSigned,
+    formatAsSignedMs,
     fromBatches,
     getCurrentTimeString,
     getKanaMoras,
@@ -36,6 +38,8 @@ import {
     normalizeNonPositive,
     normalizedLookupTerms,
     percentToHex2,
+    readableCharacterCount,
+    removeSubtitleHtml,
     seekWithNudge,
     sourceString,
     subtitleIntersectsTimeInterval,
@@ -45,8 +49,8 @@ import {
     timeDurationDisplay,
     clampMediaTimestamp,
 } from '@project/common/util';
-import { TextSubtitleSettings } from '@project/common/settings';
-import { Progress } from '@project/common';
+import type { TextSubtitleSettings } from '@project/common/settings';
+import type { Progress } from '@project/common';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 function subtitle(text: string, start: number, end: number, track = 0, index = 0) {
@@ -71,6 +75,33 @@ function textSubtitleSettings(overrides: Partial<TextSubtitleSettings> = {}): Te
         ...overrides,
     };
 }
+
+describe('removeSubtitleHtml', () => {
+    it('removes presentation markup while preserving and decoding its text', () => {
+        expect(removeSubtitleHtml('<b>foo</b> &amp;<br class="line"> <i>bar</i>')).toBe('foo &\n bar');
+    });
+
+    it('removes ruby readings and fallback text while preserving the base text', () => {
+        expect(removeSubtitleHtml('<ruby><b>漢</b><rp>(</rp><rt>かん</rt><rp>)</rp></ruby><i>字')).toBe('漢字');
+    });
+});
+
+describe('readableCharacterCount', () => {
+    it('excludes whitespace and invisible formatting controls', () => {
+        expect(readableCharacterCount('')).toBe(0);
+        expect(readableCharacterCount('  foo\n\tbar&nbsp;\u200b\u202a\u202c')).toBe(6);
+    });
+
+    it('counts canonically equivalent text and combined emoji as grapheme clusters', () => {
+        expect(readableCharacterCount('e\u0301')).toBe(1);
+        expect(readableCharacterCount('é')).toBe(1);
+        expect(readableCharacterCount('👨‍👩‍👧‍👦👍🏽')).toBe(2);
+    });
+
+    it('counts visible punctuation but excludes markup and ruby annotations', () => {
+        expect(readableCharacterCount('<b>Hi!</b>&amp;<ruby>漢<rp>(</rp><rt>かん</rt><rp>)</rp></ruby>')).toBe(5);
+    });
+});
 
 describe('numeric normalization', () => {
     it('normalizes non-finite values to zero', () => {
@@ -215,6 +246,26 @@ describe('humanReadableTime', () => {
         jest.useFakeTimers().setSystemTime(new Date(2026, 4, 1, 2, 3, 4));
 
         expect(getCurrentTimeString()).toBe('2026-5-1-2-3-4');
+    });
+});
+
+describe('formatAsSigned', () => {
+    it('adds a plus sign to non-negative values and preserves negative values', () => {
+        expect(formatAsSigned(0)).toBe('+0');
+        expect(formatAsSigned(1.5)).toBe('+1.5');
+        expect(formatAsSigned(-1.5)).toBe('-1.5');
+    });
+
+    it('supports fixed decimal formatting', () => {
+        expect(formatAsSigned(1.5, 2)).toBe('+1.50');
+        expect(formatAsSigned(-1.5, 2)).toBe('-1.50');
+    });
+});
+
+describe('formatAsSignedMs', () => {
+    it('formats milliseconds with a sign and unit', () => {
+        expect(formatAsSignedMs(100)).toBe('+100 ms');
+        expect(formatAsSignedMs(-100)).toBe('-100 ms');
     });
 });
 
@@ -499,11 +550,17 @@ describe('extractText', () => {
 
 describe('computeStyles and computeStyleString', () => {
     it('returns base styles when optional decorations are disabled', () => {
-        expect(computeStyles(textSubtitleSettings())).toEqual({
+        const settings = textSubtitleSettings();
+
+        expect(computeStyles(settings)).toEqual({
             color: '#FFFFFF',
             fontSize: '32px',
             fontWeight: '700',
+            WebkitTextStroke: '0 transparent',
+            textShadow: 'none',
         });
+        expect(computeStyleString(settings)).toContain('-webkit-text-stroke: 0 transparent !important');
+        expect(computeStyleString(settings)).toContain('text-shadow: none !important');
     });
 
     it('applies outline, shadow, background, font family, and custom styles while ignoring numeric keys', () => {
@@ -798,7 +855,10 @@ describe('ensureStoragePersisted', () => {
         });
 
         await expect(ensureStoragePersisted()).resolves.toBe(false);
-        expect(warn).toHaveBeenCalledWith('Storage could not be persisted, data may be cleared by the browser');
+        expect(warn).toHaveBeenCalledWith(
+            '[asbplayer][storage]',
+            'Storage could not be persisted, data may be cleared by the browser'
+        );
     });
 });
 
@@ -862,6 +922,7 @@ describe('areSubtitleModelsEqual', () => {
     const subtitle = {
         text: 'subtitle',
         displayTime: '00:01.000',
+        displayEndTime: '00:02.000',
         originalText: 'original subtitle',
         textImage: {
             dataUrl: 'data:image/png;base64,image',
@@ -912,6 +973,7 @@ describe('areSubtitleModelsEqual', () => {
     it.each([
         ['text', { text: 'different' }],
         ['display time', { displayTime: '00:02.000' }],
+        ['display end time', { displayEndTime: '00:03.000' }],
         ['original text', { originalText: 'different original subtitle' }],
         [
             'text image',
