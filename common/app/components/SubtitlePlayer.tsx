@@ -258,6 +258,11 @@ const scrollKeys = new Set([
     ' ',
 ]);
 
+// react-virtuoso only measures rows near the viewport, so the first scrollToIndex for a
+// far-away index lands on an estimate. Re-issue the (instant) scroll for a few frames until
+// the scroller stops moving and the target row is actually rendered.
+const maxScrollToCurrentAttempts = 10;
+
 interface SubtitleScrollerContext {
     lastScrollTimestampRef: React.MutableRefObject<number>;
     userScrollActiveRef: React.MutableRefObject<boolean>;
@@ -779,6 +784,8 @@ export default function SubtitlePlayer({
 
     const highlightedSubtitleIndexesRef = useRef<ReadonlySet<number>>(new Set());
     const [currentSubtitleIndexes, setCurrentSubtitleIndexes] = useState<ReadonlySet<number>>(new Set());
+    const initialScrollDoneRef = useRef<boolean>(false);
+    const landedSubtitleCountRef = useRef<number>(-1);
     const [selectedSubtitleIndexes, setSelectedSubtitleIndexes] = useState<boolean[]>();
     const [highlightedJumpToSubtitleIndex, setHighlightedJumpToSubtitleIndex] = useState<number>();
     const disableKeyEventsRef = useRef<boolean>(disableKeyEvents);
@@ -808,44 +815,134 @@ export default function SubtitlePlayer({
         setHighlightedJumpToSubtitleIndex,
     });
 
-    const updateShowingSubtitles = useCallback((showing: readonly IndexedSubtitleModel[]) => {
-        const currentSubtitleIndexes = new Set<number>();
-        let smallestIndex: number | undefined;
+    useEffect(() => {
+        const count = subtitles?.length ?? 0;
 
-        for (const subtitle of showing) {
-            currentSubtitleIndexes.add(subtitle.index);
-
-            if (smallestIndex === undefined || subtitle.index < smallestIndex) {
-                smallestIndex = subtitle.index;
-            }
+        // Keyed on length rather than array identity: `subtitles` gets a fresh identity on every
+        // offset adjustment, and re-arming the ungated landing on each nudge would yank a user who
+        // had deliberately scrolled away. A new file, a new sync, or a cleared list all change it.
+        if (count !== landedSubtitleCountRef.current) {
+            landedSubtitleCountRef.current = count;
+            initialScrollDoneRef.current = false;
         }
+    }, [subtitles]);
 
-        const indexesChanged =
-            currentSubtitleIndexes.size !== highlightedSubtitleIndexesRef.current.size ||
-            [...currentSubtitleIndexes].some((index) => !highlightedSubtitleIndexesRef.current.has(index));
-        if (indexesChanged) {
-            highlightedSubtitleIndexesRef.current = currentSubtitleIndexes;
-            setCurrentSubtitleIndexes(currentSubtitleIndexes);
-            onSubtitlesHighlightedRef.current?.([...showing]);
+    const scrollToCurrentFrameRef = useRef<number | undefined>(undefined);
 
-            if (smallestIndex !== undefined) {
-                const allowScroll = shouldAutoScroll({
-                    hidden: hiddenRef.current,
-                    lastScrollTimestamp: lastScrollTimestampRef.current,
-                    userScrollActive: userScrollActiveRef.current,
-                    now: Date.now(),
-                });
-
-                if (allowScroll) {
-                    virtuosoRef.current?.scrollToIndex({
-                        index: smallestIndex,
-                        align: 'center',
-                        behavior: 'smooth',
-                    });
-                }
-            }
+    const cancelScrollToCurrentSubtitle = useCallback(() => {
+        if (scrollToCurrentFrameRef.current !== undefined) {
+            cancelAnimationFrame(scrollToCurrentFrameRef.current);
+            scrollToCurrentFrameRef.current = undefined;
         }
     }, []);
+
+    const scrollToCurrentSubtitle = useCallback(() => {
+        cancelScrollToCurrentSubtitle();
+
+        if (hiddenRef.current || highlightedSubtitleIndexesRef.current.size === 0) {
+            return;
+        }
+
+        // Every other scroll owner (user input, jump-to-top, find, seek-to-subtitle) stamps
+        // lastScrollTimestampRef before scrolling. Treat a change to it as "someone else owns the
+        // scroll position now" and bail. We deliberately never stamp it ourselves, so this landing
+        // is neither suppressed by nor extends the 5s auto-scroll suppression window.
+        const scrollOwnerToken = lastScrollTimestampRef.current;
+        let attempts = 0;
+        let previousScrollTop: number | undefined;
+
+        const attempt = () => {
+            scrollToCurrentFrameRef.current = undefined;
+
+            if (
+                hiddenRef.current ||
+                userScrollActiveRef.current ||
+                lastScrollTimestampRef.current !== scrollOwnerToken
+            ) {
+                return;
+            }
+
+            const indexes = highlightedSubtitleIndexesRef.current;
+
+            if (indexes.size === 0) {
+                return;
+            }
+
+            const index = Math.min(...indexes);
+            virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'auto' });
+
+            // visibleRangeRef is updated by virtuoso after it re-renders, so it is one attempt
+            // stale - hence the scroll is only considered settled from the second attempt onwards.
+            const scrollTop = scrollerElementRef.current?.scrollTop;
+            const { startIndex, endIndex } = visibleRangeRef.current;
+            const settled = attempts > 0 && scrollTop === previousScrollTop && index >= startIndex && index <= endIndex;
+
+            previousScrollTop = scrollTop;
+            ++attempts;
+
+            if (settled || attempts >= maxScrollToCurrentAttempts) {
+                return;
+            }
+
+            scrollToCurrentFrameRef.current = requestAnimationFrame(attempt);
+        };
+
+        attempt();
+    }, [cancelScrollToCurrentSubtitle]);
+
+    useEffect(() => cancelScrollToCurrentSubtitle, [cancelScrollToCurrentSubtitle]);
+
+    const updateShowingSubtitles = useCallback(
+        (showing: readonly IndexedSubtitleModel[]) => {
+            const currentSubtitleIndexes = new Set<number>();
+            let smallestIndex: number | undefined;
+
+            for (const subtitle of showing) {
+                currentSubtitleIndexes.add(subtitle.index);
+
+                if (smallestIndex === undefined || subtitle.index < smallestIndex) {
+                    smallestIndex = subtitle.index;
+                }
+            }
+
+            const indexesChanged =
+                currentSubtitleIndexes.size !== highlightedSubtitleIndexesRef.current.size ||
+                [...currentSubtitleIndexes].some((index) => !highlightedSubtitleIndexesRef.current.has(index));
+            if (indexesChanged) {
+                highlightedSubtitleIndexesRef.current = currentSubtitleIndexes;
+                setCurrentSubtitleIndexes(currentSubtitleIndexes);
+                onSubtitlesHighlightedRef.current?.([...showing]);
+
+                if (smallestIndex !== undefined) {
+                    if (!initialScrollDoneRef.current) {
+                        // First time the playhead position is known after mount / after new subtitles
+                        // loaded. The list is still parked at index 0 and virtuoso has only measured
+                        // rows near the top, so a single smooth scrollToIndex lands on a bad estimate
+                        // and never corrects itself. Land instantly and converge instead, ungated by
+                        // the auto-scroll suppression window (nothing has scrolled yet, by definition).
+                        // While hidden the landing cannot run, so stay armed for when the list shows.
+                        initialScrollDoneRef.current = !hiddenRef.current;
+                        scrollToCurrentSubtitle();
+                    } else if (
+                        scrollToCurrentFrameRef.current === undefined &&
+                        shouldAutoScroll({
+                            hidden: hiddenRef.current,
+                            lastScrollTimestamp: lastScrollTimestampRef.current,
+                            userScrollActive: userScrollActiveRef.current,
+                            now: Date.now(),
+                        })
+                    ) {
+                        virtuosoRef.current?.scrollToIndex({
+                            index: smallestIndex,
+                            align: 'center',
+                            behavior: 'smooth',
+                        });
+                    }
+                }
+            }
+        },
+        [scrollToCurrentSubtitle]
+    );
 
     useEffect(() => {
         if (playbackState === undefined) return;
@@ -877,16 +974,6 @@ export default function SubtitlePlayer({
             }
         };
     }, [playbackState, updateShowingSubtitles]);
-
-    const scrollToCurrentSubtitle = useCallback(() => {
-        const indexes = highlightedSubtitleIndexesRef.current;
-        if (indexes.size === 0) return;
-        virtuosoRef.current?.scrollToIndex({
-            index: Math.min(...indexes),
-            align: 'center',
-            behavior: 'smooth',
-        });
-    }, []);
 
     const scrollToSubtitle = useCallback((subtitle: SubtitleModel) => {
         if (hiddenRef.current || subtitle.index === undefined) return;
