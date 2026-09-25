@@ -257,6 +257,28 @@
     white-space: nowrap;
 }
 
+/* Zero-width spacer leading each subtitle when glosses are enabled (see glossStrutHtml), reserving
+   the gloss row so a first line without glosses is as tall as one with them. Only top-aligned
+   subtitles need it: they hang from their top edge, so a taller first line pushes the text down,
+   while bottom-aligned subtitles grow upward without moving the text. */
+.asb-gloss.asb-gloss-strut {
+    display: none;
+    width: 0;
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Stand-ins for the gloss and word text, which size the rows the same as a glossed word's */
+.asb-gloss.asb-gloss-strut::before,
+.asb-gloss-strut .asb-gloss-word::after {
+    content: '\a0';
+}
+
+.asbplayer-subtitles-container-top .asb-gloss.asb-gloss-strut {
+    display: inline-block;
+}
+
 /* Leading-trim the two facing edges so each annotation box hugs its glyphs instead of the font em
    box (whose internal leading varies per font). The gloss's underside becomes the alphabetic
    baseline and the reading's over edge becomes the ideographic em top, so the --asb-gloss-visual

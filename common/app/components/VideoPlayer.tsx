@@ -253,7 +253,7 @@ const SubtitleContainer = React.forwardRef<HTMLDivElement, SubtitleContainerProp
     return (
         <div
             ref={ref}
-            className={classes.subtitleContainer}
+            className={`${classes.subtitleContainer} asb-subtitles-container-${alignment}`}
             style={{
                 ...(alignment === 'bottom'
                     ? { bottom: subtitleSettings.subtitlePositionOffset + baseOffset }

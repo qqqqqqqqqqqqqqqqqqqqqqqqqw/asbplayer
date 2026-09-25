@@ -366,6 +366,25 @@ describe('rich text rendering', () => {
         expect(rendered).toContain('<span class="asb-pitch-accent-mora asb-pitch-accent-mora-high">は</span>');
     });
 
+    it('leads with a gloss strut only when glosses are enabled', () => {
+        const render = (gloss: boolean, reading: boolean) =>
+            computeRichText(
+                '雨',
+                { tokens: [makeInternalToken({ pos: [0, 1], status: TokenStatus.UNKNOWN })] },
+                {
+                    dt: makeAnnotationTrack({}),
+                    enabledAnnotations: { color: false, reading, frequency: false, pitchAccent: false, gloss },
+                    allowAsciiReading: false,
+                }
+            );
+
+        expect(render(false, false)).toBe('雨');
+        expect(render(true, false)).toBe(
+            '<span class="asb-gloss asb-gloss-strut" aria-hidden="true"><span class="asb-gloss-word asb-gloss-word-no-reading"></span></span>雨'
+        );
+        expect(render(true, true)).toMatch(/^<span class="asb-gloss asb-gloss-reading-row asb-gloss-strut"/);
+    });
+
     it('preserves pitch context when a token reading is hidden', () => {
         const dt = makeAnnotationTrack({ pitchAccent: true });
         dt.dictionaryTokenAnnotationConfig.onStatuses[TokenStatus.MATURE].pitchAccent = false;

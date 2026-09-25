@@ -8,6 +8,7 @@ export const ASB_GLOSS_WORD_CLASS = 'asb-gloss-word';
 export const ASB_GLOSS_WORD_NO_READING_CLASS = 'asb-gloss-word-no-reading';
 export const ASB_GLOSS_ANCHOR_CLASS = 'asb-gloss-anchor';
 export const ASB_GLOSS_FLOAT_CLASS = 'asb-gloss-float';
+export const ASB_GLOSS_STRUT_CLASS = 'asb-gloss-strut';
 export const ASB_PITCH_ACCENT_CLASS = 'asb-pitch-accent';
 export const ASB_PITCH_ACCENT_MORA_CLASS = 'asb-pitch-accent-mora';
 export const ASB_PITCH_ACCENT_MORA_HIGH_CLASS = 'asb-pitch-accent-mora-high';

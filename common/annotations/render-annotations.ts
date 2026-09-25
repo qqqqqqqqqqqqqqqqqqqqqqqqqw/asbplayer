@@ -29,6 +29,7 @@ import {
     ASB_GLOSS_WORD_NO_READING_CLASS,
     ASB_GLOSS_ANCHOR_CLASS,
     ASB_GLOSS_FLOAT_CLASS,
+    ASB_GLOSS_STRUT_CLASS,
     ASB_PITCH_ACCENT_CLASS,
     ASB_PITCH_ACCENT_LINE_CLASS,
     ASB_PITCH_ACCENT_MORA_CLASS,
@@ -222,6 +223,7 @@ export const computeRichText = (fullText: string, tokenization: Tokenization, ss
     if (!tokenization.tokens.length) return;
 
     const parts: string[] = [];
+    if (ss.enabledAnnotations.gloss) parts.push(glossStrutHtml(ss));
     const prevPitch: PitchAccentContext = {}; // Context from the previous token to correctly determine pitch for attached particle
     iterateOverStringInBlocks(
         fullText,
@@ -487,4 +489,15 @@ const applyGlossAnnotation = (tokenText: string, token: Token, ss: TokenStyleSta
         ? ASB_GLOSS_WORD_CLASS
         : `${ASB_GLOSS_WORD_CLASS} ${ASB_GLOSS_WORD_NO_READING_CLASS}`;
     return `<span class="${glossClass}" data-gloss="${gloss}"><span class="${wordClass}"><span class="${ASB_GLOSS_ANCHOR_CLASS}"><span class="${ASB_GLOSS_FLOAT_CLASS}" data-gloss="${gloss}"></span>${tokenText}</span></span></span>`;
+};
+
+// A zero-width spacer leading the subtitle that reserves the same gloss row as a glossed word, so the
+// first line is equally tall whether or not any of its words are glossed. It's only displayed for
+// top-aligned subtitles (see subtitles.css / video.css .asb-gloss-strut): they hang from their top
+// edge, so a taller first line would push the text down, while bottom-aligned subtitles grow upward.
+const glossStrutHtml = (ss: TokenStyleState) => {
+    const glossClass = ss.enabledAnnotations.reading
+        ? `${ASB_GLOSS_CLASS} ${ASB_GLOSS_READING_ROW_CLASS}`
+        : ASB_GLOSS_CLASS;
+    return `<span class="${glossClass} ${ASB_GLOSS_STRUT_CLASS}" aria-hidden="true"><span class="${ASB_GLOSS_WORD_CLASS} ${ASB_GLOSS_WORD_NO_READING_CLASS}"></span></span>`;
 };
